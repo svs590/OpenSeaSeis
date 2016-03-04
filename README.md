@@ -17,3 +17,5 @@ me.
 EAGE 2012 Open-software Workshop abstract and poster
   eage2012_open_source_workshop_Seaseis.pdf
   eage2012_open_source_workshop_Seaseis_poster.pdf
+
+# Comment added 3 March 2016 to test push/pull
