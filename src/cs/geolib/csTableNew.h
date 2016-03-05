@@ -127,6 +127,9 @@ public:
   void interpolateTimeFunction( csTimeFunction<double> const* timeFuncLeft, csTimeFunction<double> const* timeFuncRight,
 				double weightLoc, csTimeFunction<double>* newTimeFunction ) const;
 
+  /**
+   * @return true if exact key was found
+   */
   bool findInterpKeyLocation( double keyValue_in, int keyIndex, int& locLeft, int& locRight, double& weight ) const;
   void findInterpKeyLocation2D( double const* keyValues_in,
                                 int locStart, int locEnd,
@@ -173,9 +176,6 @@ protected:
   /// Key values at each location (for 1D & 2D tables)
   double ** myKeyValues;
 
-  // Index values, column locations in input file
-  /// Number of columns in table
-  int myNumCols;
   bool myHasReadTableContents;
   bool myHasBeenInitialized;
 

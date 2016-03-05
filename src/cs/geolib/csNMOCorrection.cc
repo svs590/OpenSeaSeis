@@ -26,9 +26,12 @@ csNMOCorrection::csNMOCorrection( double sampleInt_ms, int numSamples, int metho
   myOffsetApex = 4000;
   myIsHorizonBasedNMO = false;
   myVelocityTrace = NULL;
+  myETATrace      = NULL;
   myTimeTrace     = NULL;
   myTimeTraceInverse = NULL;
+  myTimeTraceDiff    = NULL;
   myInterpol = NULL;
+  myTimeSample1_s = 0.0;
 
   allocateVelocity();
 }
@@ -43,6 +46,10 @@ csNMOCorrection::~csNMOCorrection() {
     delete [] myVelocityTrace;
     myVelocityTrace = NULL;
   }
+  if( myETATrace != NULL ) {
+    delete [] myETATrace;
+    myETATrace = NULL;
+  }
   if( myTimeTrace != NULL ) {
     delete [] myTimeTrace;
     myTimeTrace = NULL;
@@ -51,10 +58,20 @@ csNMOCorrection::~csNMOCorrection() {
     delete [] myTimeTraceInverse;
     myTimeTraceInverse = NULL;
   }
+  if( myTimeTraceDiff != NULL ) {
+    delete [] myTimeTraceDiff;
+    myTimeTraceDiff = NULL;
+  }
   if( myInterpol != NULL ) {
     delete myInterpol;
     myInterpol = NULL;
   }
+}
+//--------------------------------------------------------------------------------
+//
+void csNMOCorrection::setTimeSample1( float timeSample1_ms ) {
+  if( timeSample1_ms > 0 ) throw( csException("Inconsistent time of first sample provided: %f. Must be <= 0\n", timeSample1_ms) );
+  myTimeSample1_s = timeSample1_ms / 1000.0;
 }
 //--------------------------------------------------------------------------------
 //
@@ -71,6 +88,10 @@ void csNMOCorrection::allocateVelocity() {
     delete [] myVelocityTrace;
     myVelocityTrace = NULL;
   }
+  if( myETATrace != NULL ) {
+    delete [] myETATrace;
+    myETATrace = NULL;
+  }
   if( myTimeTrace != NULL ) {
     delete [] myTimeTrace;
     myTimeTrace = NULL;
@@ -80,9 +101,13 @@ void csNMOCorrection::allocateVelocity() {
   }
   else {
     myVelocityTrace = new float[myNumSamples];
+    if( myNMOMethod == csNMOCorrection::PP_NMO_VTI ) {
+      myETATrace = new float[myNumSamples];
+    }
     myTimeTrace     = new float[myNumSamples];
+    // Probably unnecessary to set time trace here...will be overwritten anyway
     for( int isamp = 0; isamp < myNumSamples; isamp++ ) {
-      myTimeTrace[isamp] = (float)( mySampleInt_sec * isamp );
+      myTimeTrace[isamp] = (float)( mySampleInt_sec * isamp ) + myTimeSample1_s;
     }
     myInterpol = new csInterpolation( myNumSamples, mySampleInt_sec );
   }
@@ -111,7 +136,7 @@ void csNMOCorrection::perform_nmo( int numVelocities_in, float const* time_in, f
     return( perform_nmo_horizonBased_prepare( numVelocities_in, time_in, vel_rms_in, offset, samplesOut ) );
   }
   else {
-    return( perform_nmo_internal( numVelocities_in, time_in, vel_rms_in, offset, samplesOut ) );
+    return( perform_nmo_internal( numVelocities_in, time_in, vel_rms_in, offset, samplesOut, NULL ) );
   }
 }
 //--------------------------------------------------------------------
@@ -142,28 +167,43 @@ void csNMOCorrection::perform_nmo( csTimeFunction<double> const* velTimeFunc, do
       t0[i]      = velTimeFunc->timeAtIndex(i)/1000.0;  // Convert to seconds
       vel_rms[i] = velTimeFunc->valueAtIndex(i);
     }
-
-    perform_nmo_internal( numVelocities_in, t0, vel_rms, offset, samplesOut );    
+    if( myNMOMethod != csNMOCorrection::PP_NMO_VTI ) {
+      perform_nmo_internal( numVelocities_in, t0, vel_rms, offset, samplesOut, NULL );
+    }
+    else {
+      if( velTimeFunc->numSpatialValues() < 2 ) throw( csException("csNMOCorrection::perform_nmo: VTI velocity function is lacking an eta function") );
+      float* eta = new float[numVelocities];
+      for( int i = 0; i < numVelocities_in; i++ ) {
+        eta[i] = velTimeFunc->valueAtIndex(i,1);
+      }
+      perform_nmo_internal( numVelocities_in, t0, vel_rms, offset, samplesOut, eta );
+      delete [] eta;
+    }
   }
   delete [] t0;
   delete [] vel_rms;
 }
 //--------------------------------------------------------------------------------
 //
-//void csNMOCorrection::perform_nmo( int numVelocities_in, float const* time_in, float const* vel_rms_in, double offset, float* samplesOut ) {
-//}
-void csNMOCorrection::perform_nmo_internal( int numVels, float const* times, float const* vel_rms, double offset, float* samplesOut ) {
+void csNMOCorrection::perform_nmo_internal( int numVels, float const* times, float const* vel_rms, double offset, float* samplesOut, float const* eta ) {
 
   // Linearly interpolate input velocities
   csInterpolation::linearInterpolation( numVels, times, vel_rms, myNumSamples, mySampleInt_sec, myVelocityTrace );
+  if( myNMOMethod == csNMOCorrection::PP_NMO_VTI ) {
+    csInterpolation::linearInterpolation( numVels, times, eta, myNumSamples, mySampleInt_sec, myETATrace );
+  }
 
   memcpy( myBuffer, samplesOut, myNumSamples*sizeof(float) );
   double offset_sq = offset*offset;
 
-  for( int isamp = 0; isamp < myNumSamples; isamp++ ) {
-    double timeOut = (double)isamp*mySampleInt_sec;
+  int isampTimeZero = (int)round( -myTimeSample1_s / mySampleInt_sec );
+  for( int isamp = isampTimeZero; isamp < myNumSamples; isamp++ ) {
+    //  for( int isamp = 0; isamp < myNumSamples; isamp++ ) {
+    double timeOut = (double)isamp*mySampleInt_sec + myTimeSample1_s;
     double timeOut_sq = timeOut * timeOut;
-    double vel        = myVelocityTrace[isamp];
+    int isampVel = isamp - isampTimeZero;
+    if( isampVel < 0 ) isampVel = 0;
+    double vel = myVelocityTrace[isampVel];
     if( vel <= 0.0 ) {
       throw( csException("csNMOCorrection::perform_nmo_internal(): Velocity <= 0 encountered. Wrong input velocity function?") );
     }
@@ -174,6 +214,9 @@ void csNMOCorrection::perform_nmo_internal( int numVels, float const* times, flo
     case csNMOCorrection::PS_NMO:
       myTimeTrace[isamp] = 0.5 * sqrt( timeOut_sq ) + 0.5 * sqrt( timeOut_sq + 2.0 * offset_sq / (vel*vel) );
       break;
+    case csNMOCorrection::PP_NMO_VTI:
+      myTimeTrace[isamp] = sqrt( timeOut_sq + offset_sq/(vel*vel) - (2*myETATrace[isampVel]*offset_sq*offset_sq) / (vel*vel * (timeOut_sq*vel*vel + (1+2*myETATrace[isampVel])*offset_sq) ) );
+      break;
     case csNMOCorrection::EMPIRICAL_NMO:
       myTimeTrace[isamp] = timeOut + ( ( vel * ( pow( (offset-myOffsetApex)/1000,2) - pow(myOffsetApex/1000,2) ) -  (vel/(vel+0.1)) * myZeroOffsetDamping * exp(-0.5*pow(offset/1000,2)) ) / 1000);
       break;
@@ -182,18 +225,27 @@ void csNMOCorrection::perform_nmo_internal( int numVels, float const* times, flo
       break;
     }
   }
+  for( int isamp = 0; isamp < isampTimeZero; isamp++ ) {
+    myTimeTrace[isamp] = myTimeTrace[isampTimeZero] + myTimeTrace[isampTimeZero] - myTimeTrace[2*isampTimeZero-isamp+1];
+  }
+
   if( myNMOMethod == csNMOCorrection::OUTPUT_VEL ) {
     // Do nothing
   }
   else if( myModeOfApplication == csNMOCorrection::NMO_APPLY ) {
-    myInterpol->process( mySampleInt_sec, 0.0, myBuffer, myTimeTrace, samplesOut );
+    myInterpol->process( mySampleInt_sec, myTimeSample1_s, myBuffer, myTimeTrace, samplesOut );
   }
   else { // if( myModeOfApplication == csNMOCorrection::NMO_REMOVE ) {
     if( myTimeTraceInverse == NULL ) {
       myTimeTraceInverse  = new float[myNumSamples];
     }
+    if( myTimeSample1_s != 0 ) {
+      for( int isamp = 0; isamp < myNumSamples; isamp++ ) {
+        myTimeTrace[isamp] -= myTimeSample1_s;
+      }
+    }
     csInterpolation::xy2yxInterpolation( myTimeTrace, myTimeTraceInverse, myNumSamples, mySampleInt_sec );
-    myInterpol->process( mySampleInt_sec, 0.0, myBuffer, myTimeTraceInverse, samplesOut );
+    myInterpol->process( mySampleInt_sec, 0, myBuffer, myTimeTraceInverse, samplesOut );
   }
 }
 
@@ -277,6 +329,7 @@ void csNMOCorrection::perform_nmo_horizonBased( int numVelocities, float const* 
       break;
     case csNMOCorrection::EMPIRICAL_NMO:
       timeIn = timeOut + ( vel * ( pow( (offset-myOffsetApex)/1000,2) - pow(myOffsetApex/1000,2) ) -  (vel/(vel+0.1)) * myZeroOffsetDamping * exp(-0.5*pow(offset/1000,2)) ) / 1000;
+      break;
     case csNMOCorrection::OUTPUT_VEL:
       myBuffer[isamp] = vel;
       break;
@@ -291,5 +344,291 @@ void csNMOCorrection::perform_nmo_horizonBased( int numVelocities, float const* 
   memcpy( samplesInOut, myBuffer, myNumSamples*sizeof(float) );
 }
 
+//--------------------------------------------------------------------------------------------------
+// Differential NMO:
+//
+void csNMOCorrection::perform_differential_nmo( float const* samplesIn, int numVelocities_in, float const* time_in, float const* vel_rms_in, double offsetIn, double offsetOut, float* samplesOut ) {
+  memcpy(samplesOut, samplesIn, myNumSamples*sizeof(float) );
+  perform_differential_nmo( numVelocities_in, time_in, vel_rms_in, offsetIn, offsetOut, samplesOut );
+}
+
+void csNMOCorrection::perform_differential_nmo( int numVelocities_in, float const* time_in, float const* vel_rms_in, double offsetIn, double offsetOut, float* samplesOut ) {
+  if( myIsHorizonBasedNMO ) {
+    throw( csException("Horizon based NMO is not supported for differential NMO") );
+  }
+  else {
+    return( perform_differential_nmo_internal( numVelocities_in, time_in, vel_rms_in, offsetIn, offsetOut, samplesOut, NULL ) );
+  }
+}
+
+void csNMOCorrection::perform_differential_nmo( csTimeFunction<double> const* velTimeFunc, double offsetIn, double offsetOut, float* samplesOut ) {
+  if( myTimeSample1_s != 0 ) throw( csException("csNMOCorrection::perform_differential_nmo(): Time of first sample != 0 not supported yet for differential NMO") );
+  int numVelocities_in = velTimeFunc->numValues();
+  // Horizon based: Add one vel location at top and bottom of trace (temp fix to make sure that interpolation works)
+  int numVelocities    = myIsHorizonBasedNMO ? numVelocities_in+2 : numVelocities_in;
+
+  float* t0      = new float[numVelocities];
+  float* vel_rms = new float[numVelocities];
+
+  if( myIsHorizonBasedNMO ) {
+    throw( csException("Horizon based NMO is not supported for differential NMO") );
+  }
+  else {
+    for( int i = 0; i < numVelocities_in; i++ ) {
+      t0[i]      = velTimeFunc->timeAtIndex(i)/1000.0;  // Convert to seconds
+      vel_rms[i] = velTimeFunc->valueAtIndex(i);
+    }
+    if( myNMOMethod != csNMOCorrection::PP_NMO_VTI ) {
+      perform_differential_nmo_internal( numVelocities_in, t0, vel_rms, offsetIn, offsetOut, samplesOut, NULL );
+      //      perform_nmo_internal( numVelocities_in, t0, vel_rms, offset, samplesOut, NULL );
+    }
+    else {
+      if( velTimeFunc->numSpatialValues() < 2 ) throw( csException("csNMOCorrection::perform_differential_nmo: VTI velocity function is lacking an eta function") );
+      float* eta = new float[numVelocities];
+      for( int i = 0; i < numVelocities_in; i++ ) {
+        eta[i] = velTimeFunc->valueAtIndex(i,1);
+      }
+      perform_differential_nmo_internal( numVelocities_in, t0, vel_rms, offsetIn, offsetOut, samplesOut, eta );
+      delete [] eta;
+    }
+
+
+  }
+  delete [] t0;
+  delete [] vel_rms;
+}
+
+void csNMOCorrection::perform_differential_nmo_ORIG( csTimeFunction<double> const* velTimeFunc, double offsetIn, double offsetOut, float* samplesOut ) {
+  int numVelocities_in = velTimeFunc->numValues();
+  // Horizon based: Add one vel location at top and bottom of trace (temp fix to make sure that interpolation works)
+  int numVelocities    = myIsHorizonBasedNMO ? numVelocities_in+2 : numVelocities_in;
+
+  float* t0      = new float[numVelocities];
+  float* vel_rms = new float[numVelocities];
+
+  if( myIsHorizonBasedNMO ) {
+    throw( csException("Horizon based NMO is not supported for differential NMO") );
+  }
+  else {
+    for( int i = 0; i < numVelocities_in; i++ ) {
+      t0[i]      = velTimeFunc->timeAtIndex(i)/1000.0;  // Convert to seconds
+      vel_rms[i] = velTimeFunc->valueAtIndex(i);
+    }
+
+    perform_differential_nmo_internal_ORIG( numVelocities_in, t0, vel_rms, offsetIn, offsetOut, samplesOut );    
+  }
+  delete [] t0;
+  delete [] vel_rms;
+}
+
+
+void csNMOCorrection::perform_differential_nmo_internal( int numVels, float const* times, float const* vel_rms, double offsetIn, double offsetOut, float* samplesOut, float const* eta ) {
+
+  // Linearly interpolate input velocities
+  csInterpolation::linearInterpolation( numVels, times, vel_rms, myNumSamples, mySampleInt_sec, myVelocityTrace );
+  if( myNMOMethod == csNMOCorrection::PP_NMO_VTI ) {
+    csInterpolation::linearInterpolation( numVels, times, eta, myNumSamples, mySampleInt_sec, myETATrace );
+  }
+
+  double offsetIn_sq = offsetIn*offsetIn;
+  double offsetOut_sq = offsetOut*offsetOut;
+
+  if( myTimeTraceInverse == NULL ) {
+    myTimeTraceInverse  = new float[myNumSamples];
+  }
+  if( myTimeTraceDiff == NULL ) {
+    myTimeTraceDiff  = new float[myNumSamples];
+  }         
+
+  int isampTimeZero = (int)round( -myTimeSample1_s / mySampleInt_sec );
+  for( int isamp = isampTimeZero; isamp < myNumSamples; isamp++ ) {
+    double timeOut    = (double)isamp*mySampleInt_sec + myTimeSample1_s;
+    double timeOut_sq = timeOut * timeOut;
+    int isampVel = isamp - isampTimeZero;
+    if( isampVel < 0 ) isampVel = 0;
+    double vel = (isampVel >= 0) ? myVelocityTrace[isampVel] : myVelocityTrace[0];
+    if( vel <= 0.0 ) {
+      throw( csException("csNMOCorrection::perform_nmo_internal(): Velocity <= 0 encountered. Wrong input velocity function?") );
+    }
+    switch( myNMOMethod ) {
+    case csNMOCorrection::PP_NMO:
+      myTimeTrace[isamp]     = sqrt( timeOut_sq + offsetIn_sq / (vel*vel) );
+      myTimeTraceDiff[isamp] = sqrt( timeOut_sq + offsetOut_sq / (vel*vel) );
+      break;
+    case csNMOCorrection::PP_NMO_VTI:
+      myTimeTrace[isamp]     = sqrt( timeOut_sq + offsetIn_sq/(vel*vel) - (2*myETATrace[isampVel]*offsetIn_sq*offsetIn_sq) / (vel*vel * (timeOut_sq*vel*vel + (1+2*myETATrace[isampVel])*offsetIn_sq) ) );
+      myTimeTraceDiff[isamp] = sqrt( timeOut_sq + offsetOut_sq/(vel*vel) - (2*myETATrace[isampVel]*offsetOut_sq*offsetOut_sq) / (vel*vel * (timeOut_sq*vel*vel + (1+2*myETATrace[isampVel])*offsetOut_sq) ) );
+      break;
+    case csNMOCorrection::PS_NMO:
+      myTimeTrace[isamp] = 0.5 * sqrt( timeOut_sq ) + 0.5 * sqrt( timeOut_sq + 2.0 * offsetIn_sq / (vel*vel) );
+      myTimeTraceDiff[isamp] = 0.5 * sqrt( timeOut_sq ) + 0.5 * sqrt( timeOut_sq + 2.0 * offsetOut_sq / (vel*vel) );
+      break;
+    case csNMOCorrection::EMPIRICAL_NMO:
+      myTimeTrace[isamp] = timeOut + ( ( vel * ( pow( (offsetIn-myOffsetApex)/1000,2) - pow(myOffsetApex/1000,2) ) -  (vel/(vel+0.1)) * myZeroOffsetDamping * exp(-0.5*pow(offsetIn/1000,2)) ) / 1000);
+      myTimeTraceDiff[isamp] = timeOut + ( ( vel * ( pow( (offsetOut-myOffsetApex)/1000,2) - pow(myOffsetApex/1000,2) ) -  (vel/(vel+0.1)) * myZeroOffsetDamping * exp(-0.5*pow(offsetOut/1000,2)) ) / 1000);
+      break;
+    }
+  }
+  /*
+...review when implementing timesample1_s != 0
+  for( int isamp = 0; isamp < isampTimeZero; isamp++ ) {
+    myTimeTrace[isamp] = myTimeTrace[isampTimeZero] + myTimeTrace[isampTimeZero] - myTimeTrace[2*isampTimeZero-isamp+1];
+    myTimeTraceDiff[isamp] = myTimeTraceDiff[isampTimeZero] + myTimeTraceDiff[isampTimeZero] - myTimeTraceDiff[2*isampTimeZero-isamp+1];
+  }
+  */
+
+  // Ver2: Brute force, apply NMO, then inverse NMO
+  memcpy( myBuffer, samplesOut, myNumSamples*sizeof(float) );
+  if( myModeOfApplication == csNMOCorrection::NMO_APPLY ) {
+    csInterpolation::xy2yxInterpolation( myTimeTraceDiff, myTimeTraceInverse, myNumSamples, mySampleInt_sec );
+    myInterpol->process( mySampleInt_sec, 0.0, myBuffer, myTimeTrace, samplesOut );
+    memcpy( myBuffer, samplesOut, myNumSamples*sizeof(float) );
+    myInterpol->process( mySampleInt_sec, 0.0, myBuffer, myTimeTraceInverse, samplesOut );
+  }
+  else {
+    csInterpolation::xy2yxInterpolation( myTimeTrace, myTimeTraceInverse, myNumSamples, mySampleInt_sec );
+    myInterpol->process( mySampleInt_sec, 0.0, myBuffer, myTimeTraceDiff, samplesOut );
+    memcpy( myBuffer, samplesOut, myNumSamples*sizeof(float) );
+    myInterpol->process( mySampleInt_sec, 0.0, myBuffer, myTimeTraceInverse, samplesOut );
+  }
+  
+  //  fprintf(stderr,"Diff NMO %.2f --> %.2f    %f\n", offsetIn, offsetOut, myTimeTrace[1000]);
+
+  // Ver1: Compute time squeeze function, then apply NMO once. Only coded for APPLY yet. Does not keep data above direct arrival
+  /*
+  for( int isamp = 0; isamp < isampTimeZero; isamp++ ) {
+    myTimeTrace[isamp] = myTimeTrace[isampTimeZero] + myTimeTrace[isampTimeZero] - myTimeTrace[2*isampTimeZero-isamp+1];
+    myTimeTraceDiff[isamp] = myTimeTraceDiff[isampTimeZero] + myTimeTraceDiff[isampTimeZero] - myTimeTraceDiff[2*isampTimeZero-isamp+1];
+  }
+  for( int isamp = 0; isamp < myNumSamples; isamp++ ) {
+    myTimeTraceInverse[isamp] = 0;
+  }
+  int index1 = (int)myTimeTraceDiff[0];
+  int index2 = (int)myTimeTraceDiff[myNumSamples-1];
+
+  for( int isamp = 0; isamp < index1; isamp++ ) {
+    myTimeTraceInverse[isamp] = 0;
+  }
+  for( int isamp = index2; isamp < myNumSamples; isamp++ ) {
+    myTimeTraceInverse[isamp] = 0;
+  }
+  for( int isamp = 1; isamp < myNumSamples; isamp++ ) {
+    float timeIn1 = myTimeTrace[isamp-1];
+    float timeIn2 = myTimeTrace[isamp];
+    float timeOut1 = myTimeTraceDiff[isamp-1];
+    float timeOut2 = myTimeTraceDiff[isamp];
+    float indexOut1 = timeOut1/mySampleInt_sec;
+    float indexOut2 = timeOut2/mySampleInt_sec;
+    index1 = (int)indexOut1+1;
+    index2 = (int)indexOut2;
+    if( (float)index2 < indexOut1 ) continue; // Skip too finely sampled time steps
+    if( index1 >= 0 && index2 <= myNumSamples-1 ) {
+      for( int index = index1; index <= index2; index++ ) {
+        float ratio = ( (float)index - indexOut1 ) / ( indexOut2 - indexOut1 );
+        myTimeTraceInverse[index] = timeIn1 + ratio * ( timeIn2 - timeIn1 );
+        //        fprintf(stdout,"%d %f\n", index, index*mySampleInt_sec );
+      }
+    }
+  }
+  index1 = (int)myTimeTraceDiff[0];
+  for( int isamp = 0; isamp < index1; isamp++ ) {
+    int indexTmp = 2*index1-isamp+1;
+    if( indexTmp < myNumSamples ) {
+      myTimeTraceInverse[isamp] = 2*myTimeTraceInverse[index1] - myTimeTraceInverse[indexTmp];
+    }
+    else {
+      myTimeTraceInverse[isamp] = 0;
+    }
+  }
+
+  memcpy( myBuffer, samplesOut, myNumSamples*sizeof(float) );
+  myInterpol->process( mySampleInt_sec, 0.0, myBuffer, myTimeTraceInverse, samplesOut );
+  */
+  
+
+  // Assume APPLY: ...another option
+  /*
+  csInterpolation::xy2yxInterpolation( myTimeTraceDiff, myTimeTraceInverse, myNumSamples, mySampleInt_sec );
+  for( int isamp = 0; isamp < myNumSamples; isamp++ ) {
+    fprintf(stdout,"%d  %.4f %.4f %.4f %.4f\n", isamp, isamp*mySampleInt_sec, myTimeTrace[isamp], myTimeTraceDiff[isamp], myTimeTraceInverse[isamp]);
+  }
+  for( int isamp = 0; isamp < myNumSamples; isamp++ ) {
+    float time = myTimeTraceInverse[isamp];
+    int index1 = (int)(time/mySampleInt_sec);
+    float timeIndex1 = index1*mySampleInt_sec;
+    if( index1 < 0 || index1 >= myNumSamples-2 ) {
+      myTimeTraceDiff[isamp] = 0;
+    }
+    else {
+      float time1 = myTimeTrace[index1];
+      float time2 = myTimeTrace[index1+1];
+      myTimeTraceDiff[isamp] = time1 + ( (time-timeIndex1)/mySampleInt_sec ) * ( time2 - time1 );
+    }
+  }
+  myInterpol->process( mySampleInt_sec, 0.0, myBuffer, myTimeTraceDiff, samplesOut );
+  */
+
+
+  /*
+  if( myModeOfApplication == csNMOCorrection::NMO_APPLY ) {
+    myInterpol->process( mySampleInt_sec, myTimeSample1_s, myBuffer, myTimeTrace, samplesOut );
+  }
+  else { // if( myModeOfApplication == csNMOCorrection::NMO_REMOVE ) {
+    if( myTimeTraceInverse == NULL ) {
+      myTimeTraceInverse  = new float[myNumSamples];
+    }
+    if( myTimeSample1_s != 0 ) {
+      for( int isamp = 0; isamp < myNumSamples; isamp++ ) {
+        myTimeTrace[isamp] -= myTimeSample1_s;
+      }
+    }
+    csInterpolation::xy2yxInterpolation( myTimeTrace, myTimeTraceInverse, myNumSamples, mySampleInt_sec );
+    myInterpol->process( mySampleInt_sec, 0, myBuffer, myTimeTraceInverse, samplesOut );
+  }
+*/
+}
+
+void csNMOCorrection::perform_differential_nmo_internal_ORIG( int numVels, float const* times, float const* vel_rms, double offsetIn, double offsetOut, float* samplesOut ) {
+
+  // Linearly interpolate input velocities
+  csInterpolation::linearInterpolation( numVels, times, vel_rms, myNumSamples, mySampleInt_sec, myVelocityTrace );
+
+  memcpy( myBuffer, samplesOut, myNumSamples*sizeof(float) );
+  double offsetIn_sq = offsetIn*offsetIn;
+  double offsetOut_sq = offsetOut*offsetOut;
+
+  for( int isamp = 0; isamp < myNumSamples; isamp++ ) {
+    double timeOut = (double)isamp*mySampleInt_sec;
+    double timeOut_sq = timeOut * timeOut;
+    double vel        = myVelocityTrace[isamp];
+    if( vel <= 0.0 ) {
+      throw( csException("csNMOCorrection::perform_nmo_internal(): Velocity <= 0 encountered. Wrong input velocity function?") );
+    }
+    switch( myNMOMethod ) {
+    case csNMOCorrection::PP_NMO:
+      myTimeTrace[isamp] = timeOut + sqrt( timeOut_sq + offsetIn_sq / (vel*vel) ) - sqrt( timeOut_sq + offsetOut_sq / (vel*vel) );
+      break;
+    case csNMOCorrection::PS_NMO:
+      myTimeTrace[isamp] = timeOut + 0.5 * sqrt( timeOut_sq ) + 0.5 * sqrt( timeOut_sq + 2.0 * offsetIn_sq / (vel*vel) ) - ( 0.5 * sqrt( timeOut_sq ) + 0.5 * sqrt( timeOut_sq + 2.0 * offsetOut_sq / (vel*vel) ) );
+      break;
+    case csNMOCorrection::EMPIRICAL_NMO:
+      myTimeTrace[isamp] = timeOut + ( ( vel * ( pow( (offsetIn-myOffsetApex)/1000,2) - pow(myOffsetApex/1000,2) ) -  (vel/(vel+0.1)) * myZeroOffsetDamping * exp(-0.5*pow(offsetIn/1000,2)) ) / 1000) -
+	(( ( vel * ( pow( (offsetOut-myOffsetApex)/1000,2) - pow(myOffsetApex/1000,2) ) -  (vel/(vel+0.1)) * myZeroOffsetDamping * exp(-0.5*pow(offsetOut/1000,2)) ) / 1000));
+      break;
+    }
+    //    fprintf(stdout,"%f %f %f\n", timeOut, myTimeTrace[isamp], myVelocityTrace[isamp]);
+  }
+
+  if( myModeOfApplication == csNMOCorrection::NMO_APPLY ) {
+    myInterpol->process( mySampleInt_sec, 0.0, myBuffer, myTimeTrace, samplesOut );
+  }
+  else { // if( myModeOfApplication == csNMOCorrection::NMO_REMOVE ) {
+    if( myTimeTraceInverse == NULL ) {
+      myTimeTraceInverse  = new float[myNumSamples];
+    }
+    csInterpolation::xy2yxInterpolation( myTimeTrace, myTimeTraceInverse, myNumSamples, mySampleInt_sec );
+    myInterpol->process( mySampleInt_sec, 0.0, myBuffer, myTimeTraceInverse, samplesOut );
+  }
+}
 
 

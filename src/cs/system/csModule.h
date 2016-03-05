@@ -51,7 +51,7 @@ public:
   bool isReadyToSubmitExec( bool forceToRun ) const;
   /// Submit exec phase. Return false if no trace was processed.
   bool submitExecPhase( bool forceToProcess, csLogWriter* log, int& port );
-  /// Submit exec phase. Return next port number.
+  /// Submit clean-up phase. Returning false means there was some unspecified error, probably a program bug.
   bool submitCleanupPhase( csLogWriter* log );
 
   /// Move seismic traces from module 'module' that is connected to this module at input port 'inPort'

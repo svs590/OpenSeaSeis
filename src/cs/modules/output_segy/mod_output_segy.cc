@@ -32,6 +32,7 @@ namespace mod_output_segy {
     int   nTracesRead;
     int   hdr_mapping;
     int   numSamplesOut;
+    bool isFirstCall;
   };
   static int const HDR_MANDATORY_DEFAULT = 1;
   static int const HDR_MANDATORY_HEADER  = 2;
@@ -62,6 +63,7 @@ void init_mod_output_segy_( csParamManager* param, csInitPhaseEnv* env, csLogWri
   vars->nTracesRead  = 0;
   vars->hdr_mapping  = csSegyHdrMap::SEGY_STANDARD;
   vars->numSamplesOut = shdr->numSamples;
+  vars->isFirstCall = true;
 
 //--------------------------------------------------
   std::string headerName;
@@ -313,7 +315,7 @@ void init_mod_output_segy_( csParamManager* param, csInitPhaseEnv* env, csLogWri
   }
   catch( csException& e ) {
     vars->segyWriter = NULL;
-    log->error("Error when opening SEGY file '%s'.\nSystem message: %s", filename.c_str(), e.getMessage() );
+    log->error("Error when generating SEGY writer object.\nSystem message: %s", e.getMessage() );
   }
 
   //-------------------------------------------------------
@@ -538,7 +540,7 @@ void init_mod_output_segy_( csParamManager* param, csInitPhaseEnv* env, csLogWri
   }
   charHdr[csSegyHeader::SIZE_CHARHDR] = '\0';
 
-  vars->segyWriter->setCharHdr( charHdr );
+  //  vars->segyWriter->setCharHdr( charHdr );
   if( edef->isDebug() ) {
     log->line( charHdr );
   }
@@ -599,7 +601,7 @@ void init_mod_output_segy_( csParamManager* param, csInitPhaseEnv* env, csLogWri
 
   //----------------------------------------------------
   try {
-    vars->segyWriter->initialize( &finalHdrMap );
+    vars->segyWriter->initialize( &finalHdrMap, charHdr );
   }
   catch( csException& e ) {
     vars->segyWriter = NULL;
@@ -656,7 +658,6 @@ void init_mod_output_segy_( csParamManager* param, csInitPhaseEnv* env, csLogWri
 
   //  shdr->sampleInt = (float)(binHdr->sampleIntUS)/1000.0; // Commented out: Do not update sample interval of Seaseis trace flows
   vars->traceCounter = 0;
-  vars->segyWriter->freeCharBinHdr();  // Don't need these headers anymore -> free memory
 }
 
 //*************************************************************************************************
@@ -683,6 +684,19 @@ bool exec_mod_output_segy_(
     delete vars; vars = NULL;
     return true;
   }
+
+  //----------------------------------------------------
+  if( vars->isFirstCall ) {
+    vars->isFirstCall = false;
+    try {
+      vars->segyWriter->openFile();
+      vars->segyWriter->freeCharBinHdr();  // Don't need these headers anymore -> free memory
+    }
+    catch( csException& e ) {
+      log->error("Error when opening SEGY output file.\nSystem message: %s", e.getMessage() );
+    }
+  }
+
 
   csTraceHeader* trcHdr = trace->getTraceHeader();
 

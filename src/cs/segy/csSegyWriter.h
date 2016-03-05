@@ -33,8 +33,12 @@ class csSegyWriter {
 public:
   csSegyWriter( std::string filename, int nTracesBuffer,  bool reverseByteOrder, bool autoscale_hdrs, bool isSUFormat );
   ~csSegyWriter();
-  //
-  void initialize( csSegyHdrMap const* hdrMap );
+  /// Initialize
+  void initialize( csSegyHdrMap const* hdrMap, char const* newCharHdr );
+  /// Open SEGY file
+  void openFile();
+  /// Close SEGY file
+  void closeFile();
 
   /// @return number of bytes per sample
   inline int sampleByteSize() const { return mySampleByteSize; }
@@ -43,14 +47,11 @@ public:
   inline byte_t* binHdrBlock() const { return myBinHdrBlock; }
   inline char* charHdrBlock() const { return myCharHdrBlock; }
   cseis_geolib::csSegyBinHeader* binHdr() const { return myBinHdr; }
-  void setCharHdr( char const* newCharHdr );
 
   /// Free memory used to store EBCDIC and binary headers
   void freeCharBinHdr();
   /// @return SEGY file name
   inline char const* filename() const { return myFilename.c_str(); }
-  /// Close SEGY file
-  void closeFile();
   inline char const* getFilename() const { return myFilename.c_str(); }
 
 //  void writeNextTrace( byte_t const* buffer, int nSamples = 0 );
@@ -105,8 +106,8 @@ private:
 // Private access methods
 //
 private:
+  void setCharHdr( char const* newCharHdr );
   void writeCharBinHdr();
-  void openFile();
 
   csSegyWriter();
   csSegyWriter( csSegyWriter const& obj );

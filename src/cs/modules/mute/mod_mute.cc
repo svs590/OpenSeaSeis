@@ -5,6 +5,7 @@
 #include "csFlexNumber.h"
 #include "csTableAll.h"
 #include "csTableManagerNew.h"
+#include "csFlexNumber.h"
 #include <cmath>
 
 using namespace cseis_system;
@@ -31,6 +32,10 @@ namespace mod_mute {
     float indicateValue;
     int   indicateWidthSamples;
     int taperType;
+    int hdrId_time;
+    int hdrId_taper;
+    int windowStartSample;
+    int windowEndSample;
   };
   static int const TAPER_LINEAR = 1;
   static int const TAPER_COSINE = 2;
@@ -61,8 +66,12 @@ void init_mod_mute_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* lo
   vars->indicate        = false;
   vars->indicateValue   = 0.0;
   vars->indicateWidthSamples = 1;
-  vars->taperType       = mod_mute::TAPER_LINEAR;
+  vars->taperType       = mod_mute::TAPER_COSINE;
   float taperLength     = 0; // See below
+  vars->hdrId_time  = -1;
+  vars->hdrId_taper = -1;
+  vars->windowStartSample = 0; // By default, apply mute to full trace length
+  vars->windowEndSample   = shdr->numSamples-1; // By default, apply mute to full trace length
 
 //---------------------------------------------
 // Retrieve mute table
@@ -110,6 +119,25 @@ void init_mod_mute_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* lo
       log->error("Unknown mode option: '%s'", text.c_str());
     }
   }
+  if( param->exists("window") ) {
+    param->getString("window",&text);
+    if( !text.compare("no") ) {
+      // Nothing
+    }
+    else if( !text.compare("yes") ) {
+      float startTime;
+      float endTime;
+      param->getFloat( "window", &startTime, 1 );
+      param->getFloat( "window", &endTime, 2 );
+      vars->windowStartSample = std::max( 0, (int)round( startTime / (float)shdr->sampleInt ) );
+      vars->windowEndSample   = std::min( shdr->numSamples-1, (int)round( endTime / (float)shdr->sampleInt ) );
+      if( vars->windowStartSample >= shdr->numSamples ) log->error("Window start time (=%f) exceeds trace length (=%f)", startTime, shdr->numSamples );
+      if( vars->windowEndSample <= vars->windowStartSample ) log->error("Window start time (=%f) exceeds or equals window end time (=%f)", startTime, endTime );
+    }
+    else {
+      log->error("Unknown mode option: '%s'", text.c_str());
+    }
+  }
 
   if( param->exists("kill") ) {
     param->getString("kill",&text);
@@ -132,7 +160,14 @@ void init_mod_mute_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* lo
   }
 
   if( param->exists("taper_len") ) {
-    param->getFloat("taper_len", &taperLength );
+    param->getString("taper_len",&text);
+    csFlexNumber number;
+    if( !number.convertToNumber( text ) ) {
+      vars->hdrId_taper = hdef->headerIndex(text);
+    }
+    else {
+      taperLength = number.floatValue();
+    }
   }
   vars->taperLengthSamples = (int)( taperLength/shdr->sampleInt + 0.5 );
 
@@ -150,22 +185,28 @@ void init_mod_mute_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* lo
   }
 
   if( !vars->tableManager ) {
-    param->getFloat( "time", &vars->mute_time );
-    float recordLength = (float)(shdr->numSamples-1) * shdr->sampleInt;
-    int sampleIndex = (int)( vars->mute_time / shdr->sampleInt );
-
-    if( vars->mute_time < 0 || vars->mute_time > recordLength ) {
-      log->error("Specified mute time (%.0fms) is outside of valid range (0-%.0fms).",
-        vars->mute_time, shdr->numSamples*shdr->sampleInt );
-    }
-
-    if( vars->mode == MUTE_FRONT ) {
-      vars->mute_start_samp = 0;
-      vars->mute_end_samp   = sampleIndex-1;
+    param->getString("time",&text);
+    csFlexNumber number;
+    if( !number.convertToNumber( text ) ) {
+      vars->hdrId_time = hdef->headerIndex(text);
     }
     else {
-      vars->mute_start_samp = sampleIndex+1;
-      vars->mute_end_samp   = shdr->numSamples-1;
+      vars->mute_time = number.floatValue();
+      float recordLength = (float)shdr->numSamples * shdr->sampleInt;
+      int sampleIndex = (int)( vars->mute_time / shdr->sampleInt );
+
+      if( vars->mute_time < 0 || vars->mute_time > recordLength ) {
+        log->error("Specified mute time (%.0fms) is outside of valid range (0-%.0fms).",
+                   vars->mute_time, shdr->numSamples*shdr->sampleInt );
+      }
+      if( vars->mode == MUTE_FRONT ) {
+        vars->mute_start_samp = 0;
+        vars->mute_end_samp   = sampleIndex-1;
+      }
+      else {
+        vars->mute_start_samp = sampleIndex+1;
+        vars->mute_end_samp   = shdr->numSamples-1;
+      }
     }
   }
 
@@ -199,6 +240,8 @@ bool exec_mod_mute_(
   }
 
   float* samples = trace->getTraceSamples();
+  csTraceHeader* trcHdr = trace->getTraceHeader();
+
   if( vars->tableManager != NULL ) {
     vars->mute_time = vars->tableManager->getValue( trace->getTraceHeader() );
     int sampleIndex = (int)( vars->mute_time / shdr->sampleInt );
@@ -212,15 +255,44 @@ bool exec_mod_mute_(
     }
     if( edef->isDebug() ) log->line("Mute time: %f  Start/end sample: %d %d", vars->mute_time, vars->mute_start_samp, vars->mute_end_samp );
   }
+  else {
+    // Read in values from trace headers if necessary
+    if( vars->hdrId_time >= 0 ) {
+      vars->mute_time = trcHdr->floatValue( vars->hdrId_time );
+      float recordLength = (float)shdr->numSamples * shdr->sampleInt;
+      if( vars->mute_time < 0 ) {
+        vars->mute_time = 0;
+      }
+      else if( vars->mute_time > recordLength ) {
+        vars->mute_time = recordLength;
+      }
+      int sampleIndex = (int)( vars->mute_time / shdr->sampleInt );
+      if( vars->mode == MUTE_FRONT ) {
+        vars->mute_start_samp = 0;
+        vars->mute_end_samp   = sampleIndex-1;
+      }
+      else {
+        vars->mute_start_samp = sampleIndex+1;
+        vars->mute_end_samp   = shdr->numSamples-1;
+      }
+    }
+  }
+  if( vars->hdrId_taper >= 0 ) {
+    float taperLength = trcHdr->floatValue( vars->hdrId_taper );
+    vars->taperLengthSamples = (int)( taperLength/shdr->sampleInt + 0.5 );
+    if( vars->taperLengthSamples < 0 ) vars->taperLengthSamples = 0;
+    if( edef->isDebug() ) fprintf(stdout,"Taper %f\n", taperLength);
+  }
 
   if( edef->isDebug() ) {
     log->line("Mute time sample index: %d %d (nsamp: %d)", vars->mute_start_samp, vars->mute_end_samp, shdr->numSamples);
   }
 
-  if( vars->indicate ) { 
+  if( vars->indicate ) {
     int sampleIndex = (int)( vars->mute_time / shdr->sampleInt );
-    int endSamp = std::min( sampleIndex+vars->indicateWidthSamples, shdr->numSamples );
-    for( int isamp = std::max( sampleIndex-vars->indicateWidthSamples, 0); isamp < endSamp; isamp++ ) {
+    int startSamp = std::max( vars->windowStartSample, std::max( sampleIndex-vars->indicateWidthSamples, 0) );
+    int endSamp   = std::min( vars->windowEndSample+1, std::min( sampleIndex+vars->indicateWidthSamples, shdr->numSamples ) );
+    for( int isamp = startSamp; isamp < endSamp; isamp++ ) {
       samples[isamp] = vars->indicateValue;
     }
   }
@@ -228,40 +300,44 @@ bool exec_mod_mute_(
     if( vars->killZeroTraces && vars->mute_end_samp >= shdr->numSamples-1 && vars->mute_start_samp <= 1 ) {
       return false;
     }
-    for( int isamp = vars->mute_start_samp; isamp <= vars->mute_end_samp; isamp++ ) {
+    int startSamp = std::max( vars->windowStartSample, vars->mute_start_samp);
+    int endSamp   = std::min( vars->windowEndSample, vars->mute_end_samp );
+    for( int isamp = startSamp; isamp <= endSamp; isamp++ ) {
       samples[isamp] = 0.0;
     }
     if( vars->mode == MUTE_FRONT ) {
-      int startSamp = vars->mute_end_samp+1;
-      int endSamp   = std::min( startSamp+vars->taperLengthSamples, shdr->numSamples );
+      int startSampTaper = vars->mute_end_samp+1;
+      startSamp = std::max( vars->windowStartSample, startSampTaper );
+      endSamp   = std::min( vars->windowEndSample+1, std::min( vars->mute_end_samp+1+vars->taperLengthSamples, shdr->numSamples ) );
       if( edef->isDebug() ) log->line("Start/end sample of taper: %d %d", startSamp, endSamp);
       if( vars->taperType == mod_mute::TAPER_LINEAR ) {
         for( int isamp = startSamp; isamp < endSamp; isamp++ ) {
-          float weight = (float)(isamp-startSamp+1)/(float)vars->taperLengthSamples;
+          float weight = (float)(isamp-startSampTaper+1)/(float)vars->taperLengthSamples;
           samples[isamp] *= weight;
         }
       }
       else { // COSINE taper
-        for( int isamp = startSamp; isamp < endSamp; isamp++ ) {
-          float phase  = ( ( (float)(isamp-startSamp) / (float)vars->taperLengthSamples ) - 1.0 ) * M_PI;
+        for( int isamp = std::max(startSamp,0); isamp < endSamp; isamp++ ) {
+          float phase  = ( ( (float)(isamp-startSampTaper) / (float)vars->taperLengthSamples ) - 1.0 ) * M_PI;
           float weight = 0.5 * (cos(phase) + 1.0);
           samples[isamp] *= weight;
         }
       }
     }
     else {
-      int startSamp = std::max( 0, vars->mute_start_samp-vars->taperLengthSamples );
-      int endSamp   = std::min( vars->mute_start_samp, shdr->numSamples );
+      startSamp = std::max( vars->windowStartSample, std::max( 0, vars->mute_start_samp-vars->taperLengthSamples ) );
+      int endSampTaper = std::min( vars->mute_start_samp, shdr->numSamples );
+      endSamp   = std::min( vars->windowEndSample+1, endSampTaper );
       if( edef->isDebug() ) log->line("Start/end sample of taper: %d %d", startSamp, endSamp);
       if( vars->taperType == mod_mute::TAPER_LINEAR ) {
         for( int isamp = startSamp; isamp < endSamp; isamp++ ) {
-          float weight = (float)(endSamp-isamp)/(float)vars->taperLengthSamples;
+          float weight = (float)(endSampTaper-isamp)/(float)vars->taperLengthSamples;
           samples[isamp] *= weight;
         }
       }
       else { // COSINE taper
         for( int isamp = startSamp; isamp < endSamp; isamp++ ) {
-          float phase  = ( ( (float)(endSamp-isamp) / (float)vars->taperLengthSamples ) - 1.0 ) * M_PI;
+          float phase  = ( ( (float)(endSampTaper-isamp) / (float)vars->taperLengthSamples ) - 1.0 ) * M_PI;
           float weight = 0.5 * (cos(phase) + 1.0);
           samples[isamp] *= weight;
         }
@@ -292,15 +368,22 @@ void params_mod_mute_( csParamDef* pdef ) {
   //    "The mute table must have at least two columns, one giving a key and the second giving the mute time in [ms]" );
 
   pdef->addParam( "time", "Mute time [ms]", NUM_VALUES_FIXED );
-  pdef->addValue( "", VALTYPE_NUMBER, "Mute time [ms]" );
+  pdef->addValue( "", VALTYPE_HEADER_NUMBER, "Mute time [ms] (or header name containing mute time)" );
 
   pdef->addParam( "taper_len", "Taper length [ms]", NUM_VALUES_FIXED );
-  pdef->addValue( "0", VALTYPE_NUMBER, "Mute taper length [ms]" );
+  pdef->addValue( "0", VALTYPE_HEADER_NUMBER, "Mute taper length [ms] (or header name containing taper length)" );
 
   pdef->addParam( "taper_type", "Type of mute taper", NUM_VALUES_FIXED );
-  pdef->addValue( "linear", VALTYPE_OPTION );
+  pdef->addValue( "cos", VALTYPE_OPTION );
   pdef->addOption( "linear", "Apply linear taper" );
   pdef->addOption( "cos", "Apply cosine taper" );
+
+  pdef->addParam( "window", "Restrict mute to certain window?", NUM_VALUES_FIXED, "If specified, mute will not be applied outside of the specified window, including no tapering" );
+  pdef->addValue( "no", VALTYPE_OPTION);
+  pdef->addOption( "no", "Do not restrict mute to a window: Apply mute over full trace length" );
+  pdef->addOption( "yes", "Apply mute only inside  specified window" );
+  pdef->addValue( "", VALTYPE_NUMBER, "Start time" );
+  pdef->addValue( "", VALTYPE_NUMBER, "End time" );
 
   pdef->addParam( "kill", "Kill zero traces?", NUM_VALUES_FIXED );
   pdef->addValue( "no", VALTYPE_OPTION );

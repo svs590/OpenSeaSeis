@@ -1,8 +1,8 @@
 /* Copyright (c) Colorado School of Mines, 2013.*/
 /* All rights reserved.                       */
 
-#ifndef CS_STACK_HH
-#define CS_STACK_HH
+#ifndef CS_STACK_H
+#define CS_STACK_H
 
 #include <cstdlib>
 #include <cstdio>

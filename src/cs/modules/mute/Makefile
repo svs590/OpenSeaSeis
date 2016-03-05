@@ -29,5 +29,5 @@ $(LIBDIR)/$(LIB_v1.0): $(OBJS)
 $(OBJDIR)/mod_$(MODULE_NAME)_ver2.o: $(MODULE2)
 	$(CPP) -c $(ALL_FLAGS) $(MODULE2) -o $(OBJDIR)/mod_$(MODULE_NAME)_ver2.o
 
-$(LIBDIR)/$(LIB_v2.0): $(OBJS)
+$(LIBDIR)/$(LIB_v2.0): $(OBJS2)
 	$(CPP) -shared -Wl,-$(SONAME),$(LIB_v2.0) -o $(LIBDIR)/$(LIB_v2.0) $(OBJS2) -L$(LIBDIR) -lc -lgeolib -lcseis_system

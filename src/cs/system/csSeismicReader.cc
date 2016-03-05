@@ -59,7 +59,10 @@ bool csSeismicReader::readFileHeader( csSuperHeader* shdr, csTraceHeaderDef* hde
   bool success = myReader->readFileHeader( &config );
   if( !success ) return false;
   
-  shdr->domain     = config.domain;
+  shdr->domain      = config.domain;
+  shdr->fftDataType  = config.fftDataType;
+  shdr->numSamplesXT  = config.numSamplesXT;
+  shdr->sampleIntXT  = config.sampleIntXT;
   shdr->numSamples = config.numSamples;
   shdr->sampleInt  = config.sampleInt;
   shdr->grid_orig_x      = config.grid_orig_x;

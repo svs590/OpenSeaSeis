@@ -39,6 +39,7 @@ namespace cseis_geolib {
  static int const FX_AMP_PHASE = 502;
  static int const FX_AMP       = 503;
  static int const FX_PSD       = 504;
+ static int const FX_PHASE     = 505;
  static int const FX_NONE      = 500;
 
  static int const FK_NONE      = FX_NONE;

@@ -52,7 +52,7 @@ static int const STATE_08_END      = 8;
   Converts SU module C source code into CSEIS-compatible C++ source code
 
   How to compile:
-export SRCDIR=/disk/sources/seaseis/seaseis_v2.03
+export SRCDIR=/disk/sources/seaseis/seaseis_v2.04
 export LIBDIR=/opt/seaseis/lib
 cd $SRCDIR/src/cs/su
 g++ helper_convert_su_c2cpp.cc -o helper_convert_su_c2cpp -I../geolib -Wl,-rpath,${LIBDIR} -L${LIBDIR} -lgeolib

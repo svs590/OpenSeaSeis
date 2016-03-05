@@ -136,6 +136,9 @@ bool csSeismicWriter_ver::writeFileHeader( csSeismicIOConfig const* config ) {
   appendInt(    config->numSamples );
   appendFloat(  config->sampleInt );
   appendInt(    config->domain );
+  appendInt(    config->fftDataType );
+  appendInt(    config->numSamplesXT );
+  appendFloat(    config->sampleIntXT );
   appendDouble( config->grid_orig_x );
   appendDouble( config->grid_orig_y );
   appendInt( config->grid_orig_il );

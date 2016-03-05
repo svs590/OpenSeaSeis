@@ -357,7 +357,7 @@ void csTableAll::readTableContents( bool doSort ) {
     delete [] keysNew;
   }
 
-  for( int iloc = 0; iloc < myNumLocations; iloc++ ) {
+  for( int iloc = 0; iloc < keyValueList.size(); iloc++ ) {
     delete [] keyValueList.at(iloc);
   }
 }

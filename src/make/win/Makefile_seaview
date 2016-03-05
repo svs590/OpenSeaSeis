@@ -15,6 +15,7 @@ OBJ_JNI_SEGY = $(OBJDIR)/csSegyHdrMap.o \
 				$(OBJDIR)/csSeismicReader_ver01.o \
 				$(OBJDIR)/csSeismicReader_ver02.o \
 				$(OBJDIR)/csSeismicReader_ver03.o \
+				$(OBJDIR)/csSeismicReader_ver04.o \
 				$(OBJDIR)/csGeneralSeismicReader.o \
 				$(OBJDIR)/csSeismicIOConfig.o \
 				$(OBJDIR)/geolib_string_utils.o \
@@ -138,6 +139,9 @@ $(OBJDIR)/csSeismicReader_ver02.o: $(SRCDIR)/cs/io/csSeismicReader_ver02.cc $(SR
 
 $(OBJDIR)/csSeismicReader_ver03.o: $(SRCDIR)/cs/io/csSeismicReader_ver03.cc $(SRCDIR)/cs/io/csSeismicReader_ver03.h
 	$(CPP) -c $(SRCDIR)/cs/io/csSeismicReader_ver03.cc -o $(OBJDIR)/csSeismicReader_ver03.o $(CXXFLAGS_JNI)
+
+$(OBJDIR)/csSeismicReader_ver04.o: $(SRCDIR)/cs/io/csSeismicReader_ver04.cc $(SRCDIR)/cs/io/csSeismicReader_ver04.h
+	$(CPP) -c $(SRCDIR)/cs/io/csSeismicReader_ver04.cc -o $(OBJDIR)/csSeismicReader_ver04.o $(CXXFLAGS_JNI)
 
 $(OBJDIR)/csGeneralSeismicReader.o: $(SRCDIR)/cs/io/csGeneralSeismicReader.cc $(SRCDIR)/cs/io/csGeneralSeismicReader.h
 	$(CPP) -c $(SRCDIR)/cs/io/csGeneralSeismicReader.cc -o $(OBJDIR)/csGeneralSeismicReader.o $(CXXFLAGS_JNI)

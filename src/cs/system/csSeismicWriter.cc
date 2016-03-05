@@ -35,6 +35,9 @@ bool csSeismicWriter::writeFileHeader( csSuperHeader const* shdr, csTraceHeaderD
 
   cseis_io::csSeismicIOConfig config;
   config.domain     = shdr->domain;
+  config.fftDataType  = shdr->fftDataType;
+  config.numSamplesXT = shdr->numSamplesXT;
+  config.sampleIntXT  = shdr->sampleIntXT;
   config.numSamples = shdr->numSamples;
   config.sampleInt  = shdr->sampleInt;
   config.grid_orig_x     = shdr->grid_orig_x;

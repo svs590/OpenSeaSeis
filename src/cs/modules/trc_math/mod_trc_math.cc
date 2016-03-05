@@ -7,6 +7,7 @@
 #include "csToken.h"
 #include "csVector.h"
 #include "csEquationSolver.h"
+#include "csSort.h"
 
 using namespace cseis_system;
 using namespace cseis_geolib;
@@ -27,8 +28,16 @@ namespace mod_trc_math {
     double* userConstantValues;
     int  numVariables;
     int option;
+    bool isGradient;
+    float gradient;
+    float gradientScalar;
     double dbScalar;
     float* buffer;
+    bool isMedianFilt;
+    int numSampMedianFilt;
+    int numSampMedianFiltALL;
+    cseis_geolib::csSort<float>* sortObj;
+    float* medianBuffer;
   };
   static int const OPTION_NONE     = 0;
   static int const OPTION_EQUATION = 1;
@@ -57,12 +66,37 @@ void init_mod_trc_math_( csParamManager* param, csInitPhaseEnv* env, csLogWriter
 
   vars->value           = 0;
   vars->option          = OPTION_NONE;
+  vars->isGradient      = false;
+  vars->gradient = 0;
+  vars->gradientScalar = 0.0;
   vars->solver          = NULL;
   vars->numVariables    = 0;
   vars->userConstantValues = NULL;
   vars->dbScalar = 10.0;
   vars->buffer = NULL;
+  vars->medianBuffer = NULL;
+  
+  vars->isMedianFilt = false;
+  vars->numSampMedianFilt = 0;
+  vars->numSampMedianFiltALL = 0;
+  vars->sortObj = NULL;
 
+  if( param->exists("gradient") ) {
+    vars->isGradient = true;
+    param->getFloat( "gradient", &vars->gradient );
+    vars->gradientScalar = vars->isGradient ? (vars->gradient*shdr->sampleInt/1000.0) : 0.0;
+  }
+  if( param->exists("median_filt") ) {
+    vars->isMedianFilt = true;
+    float length;
+    param->getFloat( "median_filt", &length );
+    vars->numSampMedianFilt = (int)( 0.5 * length / shdr->sampleInt );
+    vars->numSampMedianFiltALL = 2*vars->numSampMedianFilt + 1;
+    log->line("Length of median filter = %d samples  (%f)", 2*vars->numSampMedianFilt+1, length );
+    vars->sortObj = new csSort<float>();
+    vars->buffer = new float[shdr->numSamples];
+    vars->medianBuffer = new float[shdr->numSamples];
+  }
   if( param->exists("add") ) {
     vars->option = OPTION_ADD;
     param->getFloat( "add", &vars->value );
@@ -72,7 +106,7 @@ void init_mod_trc_math_( csParamManager* param, csInitPhaseEnv* env, csLogWriter
     param->getString( "flip", &text );
     if( !text.compare("yes") ) {
       vars->option |= OPTION_FLIP;
-      vars->buffer = new float[shdr->numSamples];
+      if( vars->buffer == NULL ) vars->buffer = new float[shdr->numSamples];
     }
     else if( text.compare("no") ) {
       log->error("Unknown option: %s", text.c_str());
@@ -147,12 +181,20 @@ bool exec_mod_trc_math_(
     if( vars->buffer != NULL ) {
       delete [] vars->buffer; vars->buffer = NULL;
     }
+    if( vars->medianBuffer != NULL ) {
+      delete [] vars->medianBuffer; vars->medianBuffer = NULL;
+    }
+    if( vars->sortObj != NULL ) {
+      delete vars->sortObj;
+      vars->sortObj = NULL;
+    }
     delete vars; vars = NULL;
     return true;
   }
 
   float* samples = trace->getTraceSamples();
   int nSamples = shdr->numSamples;
+
 
   if( vars->solver != NULL ) {
     if( vars->numVariables == 1 ) {
@@ -190,6 +232,22 @@ bool exec_mod_trc_math_(
     }
   }
 
+  if( vars->isGradient ) {
+    for( int isamp = 0; isamp < nSamples; isamp++ ) {
+      samples[isamp] += vars->gradientScalar * (float)isamp;
+    }
+  }
+
+  if( vars->isMedianFilt ) {
+    for( int isamp = vars->numSampMedianFilt; isamp < nSamples-vars->numSampMedianFilt; isamp++ ) {
+      int index1 = isamp-vars->numSampMedianFilt;
+      memcpy( vars->buffer, &samples[index1], vars->numSampMedianFiltALL * sizeof(float) );
+      vars->sortObj->treeSort( vars->buffer, vars->numSampMedianFiltALL );
+      vars->medianBuffer[isamp] = vars->buffer[vars->numSampMedianFilt];
+    }
+    memcpy( &samples[vars->numSampMedianFilt], &vars->medianBuffer[vars->numSampMedianFilt],  (nSamples-vars->numSampMedianFilt) * sizeof(float) );
+  }
+
   if( (vars->option & OPTION_FLIP) != 0 ) {
     for( int isamp = 0; isamp < nSamples; isamp++ ) {
       vars->buffer[nSamples-isamp-1] = samples[isamp];
@@ -217,6 +275,9 @@ void params_mod_trc_math_( csParamDef* pdef ) {
   pdef->addParam( "add", "Add constant value to sample value", NUM_VALUES_FIXED );
   pdef->addValue( "0", VALTYPE_NUMBER, "Constant value to add to trace sample value" );
 
+  pdef->addParam( "gradient", "Add time-variant gradient to add to trace sample value ", NUM_VALUES_FIXED );
+  pdef->addValue( "0", VALTYPE_NUMBER, "Gradient. Time-variant gradioent is computed as follows: time_variant_gradient_value = gradient * time_in_s" );
+
   pdef->addParam( "db", "Convert (power) to dB )", NUM_VALUES_VARIABLE );
   pdef->addValue( "0", VALTYPE_NUMBER, "Added noise. Set to other than zero to prevent taking logarithm of zero" );
   pdef->addValue( "power", VALTYPE_OPTION );
@@ -227,6 +288,9 @@ void params_mod_trc_math_( csParamDef* pdef ) {
   pdef->addValue( "no", VALTYPE_OPTION );
   pdef->addOption( "no", "Do not flip trace" );
   pdef->addOption( "yes", "Flip trace upside down: Reverse the order of the sample values" );
+
+  pdef->addParam( "median_filt", "Apply median filter to input trace", NUM_VALUES_FIXED );
+  pdef->addValue( "", VALTYPE_NUMBER, "Length of median filter in unit of trace" );
 }
 
 extern "C" void _params_mod_trc_math_( csParamDef* pdef ) {

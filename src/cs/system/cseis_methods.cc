@@ -12,7 +12,12 @@
 #include "csCompareVector.h"
 #include "csKey.h"
 #include "csVector.h"
+#include "csUserParam.h"
 #include "csException.h"
+#include "csParamDescription.h"
+#include "csParamDef.h"
+#include "csLogWriter.h"
+#include "csFlexNumber.h"
 
 
 /// !CHANGE! these methods, maybe put in different file or class...
@@ -177,6 +182,139 @@ void cseis_read_globalConst( FILE* f_globalConst, cseis_geolib::csCompareVector<
     }
   }
   
+}
+
+bool checkParameters( char const* moduleName, csParamDef const* paramDef, cseis_geolib::csVector<csUserParam*>* userParams, csLogWriter* log ) {
+  bool returnFlag = true;
+  if( paramDef->module() == NULL ) {
+    log->line("Program bug: Module name not defined in parameter definition. Should be '%s'", moduleName );
+    return false;
+  }
+  if( strcmp( moduleName, paramDef->module()->name() ) ) {
+    log->line("Program bug: Inconsistent module names between parameter definition: '%s', and method definition: '%s'\n", paramDef->module()->name(), moduleName );
+    returnFlag = false;
+  }
+
+  cseis_geolib::csVector<csParamDescription const*> paramDefList(5);  // User parameter definitions for current module, e.g. name & description of parameter, such as 'filename' 'Input file name'  (set in module 'params' method)
+  cseis_geolib::csVector<csParamDescription const*> valueDefList(2);  // Definitions of all values for current user parameter (set in module 'params' method)
+  cseis_geolib::csVector<csParamDescription const*> optionList(3);
+  cseis_geolib::csVector<std::string> userValueList(2);         // All user specified values for current parameter
+
+  paramDef->getParameters( &paramDefList );
+  int nDefinedParams = paramDefList.size();
+
+  int nUserParams = userParams->size();
+
+  // Go through all parameters specified by user
+  for( int iUserParam = 0; iUserParam < nUserParams; iUserParam++ ) {
+    csUserParam* userParam = userParams->at(iUserParam);
+    char const* userParamName = userParam->getName().c_str();
+    int ip = -1;
+    // Go through all parameters defined for this module, try to find matching parameter name
+    for( int i = 0; i < nDefinedParams; i++ ) {
+      if( !strcmp( userParamName, paramDefList.at(i)->name() ) ) {
+        ip = i;
+        break;
+      }
+    }
+    if( ip < 0 ) {
+      if( !strcmp(userParamName,"debug") || !strcmp(userParamName,"version") ) {
+        continue;
+      }
+      log->line("Error: Unknown user specified parameter: '%s'", userParamName);
+      returnFlag = false;
+      continue;  // Check other parameters
+    }
+    // fprintf(stdout,"\nUser param: '%s'  '%s'\n", userParamName, paramDefList.at(ip)->desc() );
+
+    int nUserValues = userParam->getNumValues();  // Number of parameter values SPECIFIED BY USER
+    valueDefList.clear();
+    paramDef->getValues( ip, &valueDefList );
+    int nDefinedValues = valueDefList.size();   // Number of values DEFINED for this parameter
+
+    if( paramDefList.at(ip)->type() == NUM_VALUES_FIXED && nUserValues < nDefinedValues ) {
+      log->line("Error: Too few user specified values for parameter '%s'. Required: %d, found: %d", userParamName, nDefinedValues, nUserValues );
+      returnFlag = false;
+      continue;
+    }
+    else if( nUserValues == 0 ) {
+      log->line("Error: No value specified for parameter '%s'.", userParamName );
+      returnFlag = false;
+      continue;
+    }
+    // Convert all user specified parameter values to lower case (except for TYPE_STRING values)
+    // Also, check all number values
+    int minNumValues = std::min( nDefinedValues, nUserValues );
+    cseis_geolib::csFlexNumber valueTmp;
+    for( int i = 0; i < minNumValues; i++ ) {
+      int valueType = valueDefList.at(i)->type();
+      if( valueType == VALTYPE_NUMBER ) {
+        std::string text = userParam->getValue( i );
+        if( !valueTmp.convertToNumber( userParam->getValue( i ) ) ) {
+          log->line("Error: User parameter '%s': Value is not recognised as valid number: '%s'", userParamName, text.c_str() );
+          returnFlag = false;
+        }
+      }
+      else if( valueType == VALTYPE_OPTION ) {
+        //        userParam->setValueType( i, valueType );
+        userParam->convertToLowerCase( i );
+      }
+    }
+    if( nUserValues > nDefinedValues ) {
+      for( int i = nDefinedValues; i < nUserValues; i++ ) {
+        int valueType = valueDefList.at(nDefinedValues-1)->type();
+        if( valueType == VALTYPE_OPTION ) {
+          userParam->convertToLowerCase( i );
+        }
+      }
+    }
+    // For parameters taking a variable number of values, convert the last values (all same type)
+    //    if( paramDefList.at(ip)->type() == NUM_VALUES_VARIABLE && valueDefList.at(nDefinedValues-1)->type() == VALTYPE_OPTION ) {
+    //      userParam->setValueTypeVariable( nDefinedValues, valueDefList.at(nDefinedValues-1)->type() );
+    //    }
+    userValueList.clear();
+    userParam->getValues( &userValueList );
+
+    // Go through all parameter values, check correctness of OPTION values
+    for( int iv = 0; iv < minNumValues; iv++ ) {
+      if( valueDefList.at(iv)->type() == VALTYPE_OPTION ) {
+        char const* userOptionName = userValueList.at(iv).c_str();
+        // Check options:
+        optionList.clear();
+        paramDef->getOptions( ip, iv, &optionList );
+        int optionFound = false;
+        int nOptions = optionList.size();
+        for( int io = 0; io < nOptions; io++ ) {
+          if( !strcmp( userOptionName, optionList.at(io)->name() ) ) {
+            optionFound = true;
+            break;
+          }
+        }
+        if( !optionFound ) {
+          log->line("Error: Unknown user specified option for parameter '%s':  %s", userParamName, userOptionName );
+          log->write("Valid options are: ");
+          for( int io = 0; io < nOptions; io++ ) {
+            log->write("'%s' (%s)", optionList.at(io)->name(), optionList.at(io)->desc());
+            if( io < nOptions-1 ) log->write(" / ");
+          }
+          log->line("");
+          returnFlag = false;
+        }
+      } // END if
+      else {
+        if( valueDefList.at(iv)->type() != VALTYPE_STRING ) {
+        }
+      }
+      //      fprintf(stdout," Name: %s, valueType: %d\n", valueDefList.at(iv)->name(), valueDefList.at(iv)->type());
+    }
+    
+  }
+  
+  //int nParam = ;
+  //  for( int 
+
+
+  return returnFlag;
 }
 
 } // namespace

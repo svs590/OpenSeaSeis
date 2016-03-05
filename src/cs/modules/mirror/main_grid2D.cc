@@ -39,6 +39,7 @@ int main(int argc, char **argv) {
   bool fillHoles = true;
   bool smoothGrid = false;
   int smoothSize = 0;
+  bool isXOnly = false;
 
   if( argc == 1 ) {
     fprintf(stderr," Type '%s -h' for help.\n", argv[0]);
@@ -59,9 +60,10 @@ int main(int argc, char **argv) {
         fprintf(stderr," -x <bin size X> :  Bin size in X direction\n");
         fprintf(stderr," -y <bin size Y> :  Bin size in Y direction\n");
         fprintf(stderr," -n              :  No interpolation of empty bins\n");
-        fprintf(stderr,"                 :  Grid bins that do not contain any input data points will not be interplated'\n");
+        fprintf(stderr,"                 :  Grid bins that do not contain any input data points will not be interpolated\n");
         fprintf(stderr," -s <num bins>   :  Smooth grid after interpolation, use n bins in each direction\n");
         fprintf(stderr," -h              :  Print this page\n");
+        fprintf(stderr," -x_only         :  Input file does not contain a Y coordinate, only X & Z\n");
         fprintf(stderr," <filein>        :  Input ASCII file. Format: X Y Z\n");
         fprintf(stderr," <fileout>       :  Output ASCII file. Format: X Y Z\n");
         return(-1);
@@ -71,14 +73,22 @@ int main(int argc, char **argv) {
         ++iArg;
       }
       else if ( option == 'x' ) {
-        iArg++;
-        if( iArg == argc ) {
-          fprintf(stderr,"Missing argument for option -%c\n", option);
-          return(-1);
+        if( !strcmp(argv[iArg],"-x_only") ) {
+          iArg++;
+          isXOnly = true;
+          yinc = 1.0;
+          set_yinc = true;
         }
-        xinc = atof(argv[iArg]);
-        set_xinc = true;
-        ++iArg;
+        else {
+          iArg++;
+          if( iArg == argc ) {
+            fprintf(stderr,"Missing argument for option -%c\n", option);
+            return(-1);
+          }
+          xinc = atof(argv[iArg]);
+          set_xinc = true;
+          ++iArg;
+        }
       }
       else if ( option == 'y' ) {
         iArg++;
@@ -140,12 +150,18 @@ int main(int argc, char **argv) {
   double xmax = -(std::numeric_limits<double>::max()-1);
   double ymax = -(std::numeric_limits<double>::max()-1);
 
+  int indexZ = 2;
+  if( isXOnly ) indexZ = 1;
+
   while( fgets( buffer, 1024, stdin ) != NULL ) {
     tokenList.clear();
     tokenize( buffer, tokenList );
     double x = atof(tokenList.at(0).c_str());
-    double y = atof(tokenList.at(1).c_str());
-    double z = atof(tokenList.at(2).c_str());
+    double y = 1.0;
+    if( !isXOnly ) {
+      y = atof(tokenList.at(1).c_str());
+    }
+    double z = atof(tokenList.at(indexZ).c_str());
     if( x < xmin ) xmin = x;
     if( x > xmax ) xmax = x;
     if( y < ymin ) ymin = y;
@@ -175,7 +191,8 @@ int main(int argc, char **argv) {
       double yout = iy*yinc + p1.y;
       int bin = ix*ny + iy;
       if( zout[bin] != NO_VALUE ) {
-        fprintf(stdout,"%f %f %f\n", xout, yout, zout[bin]);
+        if( !isXOnly ) fprintf(stdout,"%f %f %f\n", xout, yout, zout[bin]);
+        else fprintf(stdout,"%f %f\n", xout, zout[bin]);
       }
     }
   }

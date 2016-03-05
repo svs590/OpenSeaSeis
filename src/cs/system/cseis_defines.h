@@ -73,7 +73,7 @@ static int const MAX_LINE_LENGTH = 1024;
 static char const LETTER_MODULE = '$';   // Letter preceding module name in Cseis flow
 static char const LETTER_COMMENT = '#';  // Letter indicating comment line in Cseis flow
 
-#define CSEIS_VERSION "2.03"
+#define CSEIS_VERSION "2.05"
 
 }
 

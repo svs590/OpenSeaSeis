@@ -20,7 +20,7 @@ void writeMake( FILE* fout, cseis_geolib::csVector<std::string>* moduleList );
 
   How to compile and use:
 
-export SRCDIR=/disk/sources/seaseis/seaseis_v2.03
+export SRCDIR=/disk/sources/seaseis/seaseis_v2.04
 export LIBDIR=/opt/seaseis/lib
 cd $SRCDIR/src/cs/su
 g++ helper_create_su_make_include.cc -o helper_create_su_make_include -I../geolib -Wl,-rpath,${LIBDIR} -L${LIBDIR} -lgeolib

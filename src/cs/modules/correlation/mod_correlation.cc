@@ -33,13 +33,17 @@ namespace mod_correlation {
     float* buffer;
     int mode;
     int numSamplesOrig;
+    int numSamplesBuffer;
     bool isTimeDomain;
     bool normalise;
+    bool dampen;
     bool isCrossStacked;
   };
   static int const MODE_CROSS = 1;
   static int const MODE_AUTO  = 2;
-  static int const MODE_AUTO_TWOSIDED = 3;
+  static int const MODE_AUTO_TWOSIDED  = 3;
+  static int const MODE_CROSS_PILOT    = 4;
+  static int const MODE_CROSS_PILOT_INPUT = 5;
 }
 
 //*************************************************************************************************
@@ -64,6 +68,7 @@ void init_mod_correlation_( csParamManager* param, csInitPhaseEnv* env, csLogWri
   vars->startSamp       = 0;
   vars->endSamp         = shdr->numSamples-1;
   vars->maxLag_samples  = 0;
+  vars->numSamplesBuffer = 0;
 
   vars->hdrId_start     = -1;
   vars->hdrId_end       = -1;
@@ -71,6 +76,7 @@ void init_mod_correlation_( csParamManager* param, csInitPhaseEnv* env, csLogWri
   vars->hdrType_end     = TYPE_UNKNOWN;
   vars->isTimeDomain    = true;
   vars->normalise = false;
+  vars->dampen = false;
   vars->isCrossStacked = false;
 
   //---------------------------------------------------------
@@ -93,12 +99,21 @@ void init_mod_correlation_( csParamManager* param, csInitPhaseEnv* env, csLogWri
       vars->mode = mod_correlation::MODE_CROSS;
       vars->isCrossStacked = true;
     }
+    else if( !text.compare( "cross_pilot" ) ) {
+      vars->mode = mod_correlation::MODE_CROSS_PILOT;
+    }
+    else if( !text.compare( "cross_pilot_input" ) ) {
+      vars->mode = mod_correlation::MODE_CROSS_PILOT_INPUT;
+    }
     else {
       log->error("Unknown option: '%s'", text.c_str());
     }
   }
   if( vars->mode == mod_correlation::MODE_CROSS ) {
     edef->setTraceSelectionMode( TRCMODE_FIXED, 2 );
+  }
+  else if( vars->mode == mod_correlation::MODE_CROSS_PILOT || vars->mode == mod_correlation::MODE_CROSS_PILOT_INPUT ) {
+    edef->setTraceSelectionMode( TRCMODE_ENSEMBLE );
   }
   else {
     edef->setTraceSelectionMode( TRCMODE_FIXED, 1 );
@@ -111,6 +126,18 @@ void init_mod_correlation_( csParamManager* param, csInitPhaseEnv* env, csLogWri
     }
     else if( !text.compare( "no" ) ) {
       vars->normalise = false;
+    }
+    else {
+      log->error("Unknown option: '%s'", text.c_str());
+    }
+  }
+  if( param->exists("damping") ) {
+    param->getString( "damping", &text );
+    if( !text.compare( "yes" ) ) {
+      vars->dampen = true;
+    }
+    else if( !text.compare( "no" ) ) {
+      vars->dampen = false;
     }
     else {
       log->error("Unknown option: '%s'", text.c_str());
@@ -167,7 +194,7 @@ void init_mod_correlation_( csParamManager* param, csInitPhaseEnv* env, csLogWri
         vars->endSamp = (int)round( endTime / shdr->sampleInt );
       }
       else {
-        vars->endSamp = (int)end - 1;  // User provides sample index ending at 1
+        vars->endSamp = (int)end - 1;  // User provides sample index starting at 1
         endTime = (float)vars->endSamp * shdr->sampleInt;
       }
     }
@@ -199,7 +226,7 @@ void init_mod_correlation_( csParamManager* param, csInitPhaseEnv* env, csLogWri
     vars->maxLag_samples = (int)round( maxLag_ms / shdr->sampleInt );
     if( vars->maxLag_samples > nSampIn-1 ) {
       log->warning("Specified maximum lag time (%fms) exceeds number of samples (%d) in selected time window (%fms to %fms). Set maximum lag to %ms",
-                   maxLag_ms, nSampIn, startTime, endTime, (float)((nSampIn-1)*shdr->numSamples) );
+                   maxLag_ms, nSampIn, startTime, endTime, (float)((nSampIn-1)*shdr->sampleInt) );
       vars->maxLag_samples = nSampIn-1;
     }
   }
@@ -209,15 +236,21 @@ void init_mod_correlation_( csParamManager* param, csInitPhaseEnv* env, csLogWri
   //---------------------------------------------------------
   // Other settings
   //
-  vars->numSamplesOrig = shdr->numSamples;
-  if( vars->mode == mod_correlation::MODE_CROSS || vars->mode == mod_correlation::MODE_AUTO_TWOSIDED ) {
-    shdr->numSamples = 2*vars->maxLag_samples + 1;
+  vars->numSamplesOrig   = shdr->numSamples;
+  vars->numSamplesBuffer = shdr->numSamples;
+  if( vars->mode == mod_correlation::MODE_CROSS || vars->mode == mod_correlation::MODE_AUTO_TWOSIDED || vars->mode == mod_correlation::MODE_CROSS_PILOT ) {
+    vars->numSamplesBuffer = 2*vars->maxLag_samples + 1;;
+    shdr->numSamples       = vars->numSamplesBuffer;
   }
   else if( vars->mode == mod_correlation::MODE_AUTO ) {
-    shdr->numSamples = vars->maxLag_samples + 1;
+    vars->numSamplesBuffer = vars->maxLag_samples + 1;
+    shdr->numSamples       = vars->numSamplesBuffer;
+  }
+  else if( vars->mode == mod_correlation::MODE_CROSS_PILOT_INPUT ) {
+    vars->numSamplesBuffer = 2*vars->maxLag_samples + 1;;
   }
 
-  vars->buffer = new float[shdr->numSamples];
+  vars->buffer = new float[vars->numSamplesBuffer];
 
   if( !hdef->headerExists("cross_lag") ) {
     hdef->addHeader( TYPE_FLOAT, "cross_lag", "Cross-correlation lag time" );
@@ -238,7 +271,7 @@ void init_mod_correlation_( csParamManager* param, csInitPhaseEnv* env, csLogWri
   }
 
   if( edef->isDebug() ) {
-    log->line("time1: %f, time2: %f, sample1: %d, sample2: %d, sampInt: %f\n", startTime, endTime, vars->startSamp, vars->endSamp, shdr->sampleInt );
+    log->line("time1: %f, time2: %f, sample1: %d, sample2: %d, sampInt: %f, max lag: %d samples\n", startTime, endTime, vars->startSamp, vars->endSamp, shdr->sampleInt, vars->maxLag_samples );
   }
 }
 
@@ -269,7 +302,9 @@ void exec_mod_correlation_(
   }
 
   if( vars->mode == mod_correlation::MODE_CROSS && traceGather->numTraces()!= 2 ) {
-    log->error("Wrong number of input traces for cross-correlation. Expected: 2, found: %d", traceGather->numTraces() );
+    log->warning("Wrong number of input traces for cross-correlation. Expected: 2, found: %d", traceGather->numTraces() );
+    traceGather->freeAllTraces();
+    return;
   }
 
   float time_maxAmp = 0;
@@ -335,9 +370,8 @@ void exec_mod_correlation_(
   //---------------------------------------------------
   // Cross-correlation
   //
-
   if( ( vars->mode == mod_correlation::MODE_CROSS ) ) {
-    if( edef->isDebug() ) log->line("Cross-correlation input nSamples: %d, output nSamples: %d, start: %d, end: %d", nSampIn, shdr->numSamples, vars->startSamp, vars->endSamp );
+    if( edef->isDebug() ) log->line("Cross-correlation input nSamples: %d, output nSamples: %d, start: %d, end: %d", nSampIn, vars->numSamplesBuffer, vars->startSamp, vars->endSamp );
     float* trace1Ptr = traceGather->trace(0)->getTraceSamples();
     float* trace2Ptr = traceGather->trace(1)->getTraceSamples();
     compute_twosided_correlation(
@@ -345,7 +379,8 @@ void exec_mod_correlation_(
                           &trace2Ptr[vars->startSamp],
                           nSampIn,
                           vars->buffer,
-                          vars->maxLag_samples );
+                          vars->maxLag_samples,
+			  vars->dampen );
 
     int sampleIndex_maxAmp = 0;
     if( vars->isCrossStacked ) {
@@ -374,6 +409,48 @@ void exec_mod_correlation_(
     time_maxAmp = (sampleIndex_maxAmp_float-(float)vars->maxLag_samples)*shdr->sampleInt;
   }
   //---------------------------------------------------
+  // Cross-correlation
+  //
+  else if( vars->mode == mod_correlation::MODE_CROSS_PILOT || vars->mode == mod_correlation::MODE_CROSS_PILOT_INPUT ) {
+    float* trace1Ptr = traceGather->trace(0)->getTraceSamples();
+    for( int itrc = 1; itrc < traceGather->numTraces(); itrc++ ) {
+      float* trace2Ptr = traceGather->trace(itrc)->getTraceSamples();
+      compute_twosided_correlation(
+				   &trace1Ptr[vars->startSamp],
+				   &trace2Ptr[vars->startSamp],
+				   nSampIn,
+				   vars->buffer,
+				   vars->maxLag_samples,
+				   vars->dampen );
+      
+      int sampleIndex_maxAmp = 0;
+      maxAmp = 0.0;
+      if( vars->mode == mod_correlation::MODE_CROSS_PILOT ) {
+        memcpy( trace2Ptr, vars->buffer, vars->numSamplesBuffer*sizeof(float) );
+      }
+      for( int isamp = 0; isamp < vars->numSamplesBuffer; isamp++ ) {
+	if( vars->buffer[isamp] > maxAmp ) {
+	  maxAmp = vars->buffer[isamp];
+	  sampleIndex_maxAmp = isamp;
+	}
+      }
+      
+      float sampleIndex_maxAmp_float = getQuadMaxSample( vars->buffer, sampleIndex_maxAmp, vars->numSamplesBuffer, &maxAmp );
+      time_maxAmp = (sampleIndex_maxAmp_float-(float)vars->maxLag_samples)*shdr->sampleInt;
+      csTraceHeader* trcHdr = traceGather->trace(itrc)->getTraceHeader();
+      trcHdr->setDoubleValue( vars->hdrId_cross_lag, time_maxAmp );
+      trcHdr->setDoubleValue( vars->hdrId_cross_amp, maxAmp );
+    }
+    // Free pilot trace
+    if( vars->mode == mod_correlation::MODE_CROSS_PILOT ) {
+      traceGather->freeTrace( 0 );
+    }
+    else {
+      traceGather->trace(0)->getTraceHeader()->setDoubleValue( vars->hdrId_cross_lag, 0 );
+      traceGather->trace(0)->getTraceHeader()->setDoubleValue( vars->hdrId_cross_amp, 1 );
+    }
+  }
+  //---------------------------------------------------
   // Autocorrelation
   //
   else {  // MODE_AUTO
@@ -383,7 +460,7 @@ void exec_mod_correlation_(
     if( vars->mode == mod_correlation::MODE_AUTO ) {
       bufferPtr = &vars->buffer[0];
     }
-    else {
+    else { // two-sided auto-correlation
       sampleIndex_zeroLag = (shdr->numSamples+1)/2 - 1;
       bufferPtr = &vars->buffer[sampleIndex_zeroLag];
     }
@@ -391,7 +468,8 @@ void exec_mod_correlation_(
                                       &tracePtr[vars->startSamp],
                                       nSampIn,
                                       bufferPtr,
-                                      vars->maxLag_samples );
+                                      vars->maxLag_samples,
+				      vars->dampen );
     if( vars->normalise ) {
       for( int ilag = vars->maxLag_samples; ilag >= 0; ilag-- ) {
         bufferPtr[ilag] /= bufferPtr[0];
@@ -407,14 +485,16 @@ void exec_mod_correlation_(
     time_maxAmp = (float)sampleIndex_zeroLag * shdr->sampleInt;
   }
 
-  csTraceHeader* trcHdr = traceGather->trace(0)->getTraceHeader();
-//  trcHdr->setDoubleValue( vars->hdrId_cross_lag, (sampleIndex_maxAmp_float-nSamples+1)*shdr->sampleInt );
-  trcHdr->setDoubleValue( vars->hdrId_cross_lag, time_maxAmp );
-  trcHdr->setDoubleValue( vars->hdrId_cross_amp, maxAmp );
-
-  if( vars->mode == mod_correlation::MODE_CROSS ) {
-    // Free second trace, keep first trace
-    traceGather->freeTrace( 1 );
+  if( vars->mode != mod_correlation::MODE_CROSS_PILOT && vars->mode != mod_correlation::MODE_CROSS_PILOT_INPUT ) {
+    csTraceHeader* trcHdr = traceGather->trace(0)->getTraceHeader();
+    //  trcHdr->setDoubleValue( vars->hdrId_cross_lag, (sampleIndex_maxAmp_float-nSamples+1)*shdr->sampleInt );
+    trcHdr->setDoubleValue( vars->hdrId_cross_lag, time_maxAmp );
+    trcHdr->setDoubleValue( vars->hdrId_cross_amp, maxAmp );
+    
+    if( vars->mode == mod_correlation::MODE_CROSS ) {
+      // Free second trace, keep first trace
+      traceGather->freeTrace( 1 );
+    }
   }
 }
 
@@ -434,6 +514,8 @@ void params_mod_correlation_( csParamDef* pdef ) {
   pdef->addOption( "auto", "Auto-correlation of each single trace" );
   pdef->addOption( "auto_twosided", "Auto-correlation of each single trace", "Output two-sided auto-correlation" );
   pdef->addOption( "cross_stacked", "Cross-correlation of each consecutive trace pair", "Stack positive & negative side" );
+  pdef->addOption( "cross_pilot", "Cross-correlation of each trace with first trace in ensemble", "Input one ensemble. First trace is treated as pilot trace. Output all traces except the pilot trace" );
+  pdef->addOption( "cross_pilot_input", "Same as 'cross_pilot', but instead of outputting cross-correlation function, output input data with updated trace headers: cross_lag & cross_amp" );
 
   pdef->addParam( "domain", "Is correlation window given in time or in samples?", NUM_VALUES_FIXED );
   pdef->addValue( "time", VALTYPE_OPTION );
@@ -453,6 +535,11 @@ void params_mod_correlation_( csParamDef* pdef ) {
   pdef->addValue( "no", VALTYPE_OPTION );
   pdef->addOption( "yes", "Normalise zero lag amplitude to 1" );
   pdef->addOption( "no", "Do not normalise output" );
+
+  pdef->addParam( "damping", "Dampen correlation function edges?", NUM_VALUES_FIXED );
+  pdef->addValue( "no", VALTYPE_OPTION );
+  pdef->addOption( "yes", "Apply damping to correlation edges" );
+  pdef->addOption( "no", "Do not apply damping" );
 }
 
 extern "C" void _params_mod_correlation_( csParamDef* pdef ) {

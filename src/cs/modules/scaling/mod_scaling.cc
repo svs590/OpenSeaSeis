@@ -23,6 +23,9 @@ namespace mod_scaling {
     float* sampIndex;
     float* scalar;
     int hdrId;
+    bool isFile;
+    bool isScalar;
+    float* bufferScalar;
   };
 }
 using mod_scaling::VariableStruct;
@@ -48,11 +51,70 @@ void init_mod_scaling_( csParamManager* param, csInitPhaseEnv* env, csLogWriter*
   vars->sampIndex = NULL;
   vars->scalar    = NULL;
   vars->hdrId     = -1;
+  vars->bufferScalar = NULL;
+  vars->isFile = false;
+  vars->isScalar = false;
 
 //---------------------------------------------
 // Retrieve sampIndex and scalar
 //
   csVector<std::string> valueList;
+
+  if( param->exists( "filename" ) ) {
+    std::string text;
+    param->getString("filename",&text);
+    csVector<float> timeList;
+    csVector<float> scalarList;
+    FILE* fin = fopen(text.c_str(),"r");
+    if( fin == NULL ) log->error("Error occurred when opening input file %s.", text.c_str());
+    char buffer[132];
+    while( fgets(buffer,132,fin) != NULL ) {
+      float time;
+      float scalar;
+      sscanf(buffer,"%f %f", &time, &scalar);
+      timeList.insertEnd(time);
+      scalarList.insertEnd(scalar);
+      int num = timeList.size();
+      if( num > 1 && timeList.at(num-1) <= timeList.at(num-2) ) log->error("Time #%d not monotonically increasing: %f(#%d) --> %f(#%d)",
+                                                                           num, timeList.at(num-2), num-1, timeList.at(num-1), num);
+    }
+    fclose(fin);
+    if( scalarList.size() == 0 ) log->error("Input file %s does not contain any data", text.c_str());
+    int numSamples = scalarList.size();
+    vars->bufferScalar = new float[shdr->numSamples];
+    int indexCurrent = 0;
+    float timeCurrent   = timeList.at(0);
+    float timePrev      = timeCurrent;
+    float scalarCurrent = scalarList.at(0);
+    float scalarPrev    = scalarCurrent;
+    for( int isamp = 0; isamp < shdr->numSamples; isamp++ ) {
+      float time = (float)isamp * shdr->sampleInt;
+      if( (indexCurrent == 0 && time <= timeCurrent) || (indexCurrent == numSamples-1) ) {
+        vars->bufferScalar[isamp] = scalarCurrent;
+      }
+      else {
+        if( time > timeCurrent ) {
+          do {
+            indexCurrent += 1;
+            timeCurrent  = timeList.at(indexCurrent);  
+          } while( time > timeCurrent && indexCurrent < numSamples-1 );
+          timePrev   = timeList.at(indexCurrent-1);
+          scalarPrev = scalarList.at(indexCurrent-1);
+          scalarCurrent = scalarList.at(indexCurrent);
+        }
+        if( timePrev != timeCurrent ) {
+          vars->bufferScalar[isamp] = scalarPrev + (time-timePrev)/(timeCurrent-timePrev) * (scalarCurrent - scalarPrev);
+        }
+        else {
+          vars->bufferScalar[isamp] = scalarCurrent;
+        }
+      }
+      if( edef->isDebug() ) fprintf(stdout,"%d %f %e\n", isamp, time, vars->bufferScalar[isamp]);
+    }
+    vars->isFile = true;
+
+  }
+
 
   if( param->exists( "time" ) ) {
     param->getAll( "time", &valueList );
@@ -83,7 +145,8 @@ void init_mod_scaling_( csParamManager* param, csInitPhaseEnv* env, csLogWriter*
     param->getString("header",&name);
     vars->hdrId = hdef->headerIndex( name );
   }
-  else {
+  else if( param->exists("scalar") ) {
+    vars->isScalar = true; 
     param->getAll( "scalar", &valueList );
 
     if( valueList.size() < 1 ){
@@ -101,6 +164,9 @@ void init_mod_scaling_( csParamManager* param, csInitPhaseEnv* env, csLogWriter*
       vars->scalar[i] = number.floatValue();
       if( edef->isDebug() ) log->line("Scalar #%d: '%s' --> %f", i, valueList.at(i).c_str(), vars->scalar[i] );
     }
+  }
+  else if( !vars->isFile ) {
+    log->error("Need to specify at least one scaling parameter: 'header', 'scalar' or 'filename'");
   }
 //----------------------------------------------
   
@@ -140,6 +206,10 @@ bool exec_mod_scaling_(
     if( vars->scalar != NULL ) {
       delete [] vars->scalar; vars->scalar = NULL;
     }
+    if( vars->bufferScalar != NULL ) {
+      delete [] vars->bufferScalar;
+      vars->bufferScalar = NULL;
+    }
     delete vars; vars = NULL;
     return true;
   }
@@ -154,7 +224,7 @@ bool exec_mod_scaling_(
       samples[isamp] *= scalarValue;
     }
   }
-  else {
+  else if( vars->isScalar ) {
     float sc;
     if( vars->numTimes == 1 ) {
       sc = scalar[0];
@@ -194,6 +264,11 @@ bool exec_mod_scaling_(
       }
     }
   }
+  if( vars->isFile ) {
+    for( int isamp = 0; isamp < shdr->numSamples; isamp++ ) {
+      samples[isamp] *= vars->bufferScalar[isamp];
+    }
+  }
 
   return true;
 }
@@ -208,9 +283,8 @@ void params_mod_scaling_( csParamDef* pdef ) {
 
   pdef->setVersion( 1, 0 );
 
-  pdef->addParam( "option", "How is scalar function specified?", NUM_VALUES_FIXED );
-  pdef->addValue( "list", VALTYPE_OPTION );
-  pdef->addOption( "list", "Scale function is specified by lists of time and scalar values" );
+  pdef->addParam( "filename", "Input ASCII file name, containing table of pairs of time/scalar", NUM_VALUES_FIXED );
+  pdef->addValue( "", VALTYPE_STRING, "Input file name" );
 
   pdef->addParam( "time", "List of time value [ms]", NUM_VALUES_VARIABLE, "Time knee points at which specified scalars apply" );
   pdef->addValue( "", VALTYPE_NUMBER, "List of time values [ms]..." );

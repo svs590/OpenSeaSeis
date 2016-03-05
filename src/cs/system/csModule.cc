@@ -396,6 +396,8 @@ bool csModule::submitCleanupPhase(  csLogWriter* log ) {
     case EXEC_TYPE_SINGLETRACE:
       if( myMethodExecSingleTrace ) {
         success = (*myMethodExecSingleTrace)( NULL, &outPortDummy, myExecEnvPtr, log );
+        if( !success ) log->line( "Error occurred during cleanup phase of module '%s'\nCheck that the module's exec phase function returns 'bool', not 'void'",
+                                  getName() );
       }
       break;
     case EXEC_TYPE_MULTITRACE:

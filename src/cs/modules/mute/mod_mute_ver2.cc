@@ -53,6 +53,8 @@ namespace mod_mute {
     float indicateValue;        // Value of spike
     int   indicateWidthSamples; // Width of spike
 
+    int windowStartSample;
+    int windowEndSample;
   };
   static const string MY_NAME = "mute";
 
@@ -158,8 +160,10 @@ void init_mod_mute_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* lo
   float taperLength      = 0; // See below
   vars->taperType        = TAPER_COSINE;
   vars->taperType_str    = "COSINE";
-  vars->taperApply       = TAPER_APPLY_CENTER;
-  vars->taperApply_str   = "CENTER";
+  vars->taperApply       = TAPER_APPLY_MIN;
+  vars->taperApply_str   = "MINIMUM";
+  vars->windowStartSample = 0; // By default, apply mute to full trace length
+  vars->windowEndSample   = shdr->numSamples-1; // By default, apply mute to full trace length
 
   std::string text;
 
@@ -431,6 +435,26 @@ void init_mod_mute_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* lo
               vars->taperApply_str.c_str() );
   }
 
+  if( param->exists("window") ) {
+    param->getString("window",&text);
+    if( !text.compare("no") ) {
+      // Nothing
+    }
+    else if( !text.compare("yes") ) {
+      float startTime;
+      float endTime;
+      param->getFloat( "window", &startTime, 1 );
+      param->getFloat( "window", &endTime, 2 );
+      vars->windowStartSample = std::max( 0, (int)round( startTime / (float)shdr->sampleInt ) );
+      vars->windowEndSample   = std::min( shdr->numSamples-1, (int)round( endTime / (float)shdr->sampleInt ) );
+      if( vars->windowStartSample >= shdr->numSamples ) log->error("Window start time (=%f) exceeds trace length (=%f)", startTime, shdr->numSamples );
+      if( vars->windowEndSample <= vars->windowStartSample ) log->error("Window start time (=%f) exceeds or equals window end time (=%f)", startTime, endTime );
+    }
+    else {
+      log->error("Unknown mode option: '%s'", text.c_str());
+    }
+  }
+
   // Kill traces if they are completely muted?
   if( param->exists("kill") ) {
     param->getString("kill",&text);
@@ -626,12 +650,12 @@ bool exec_mod_mute_(
     int taper_start1, taper_end1, taper_start2, taper_end2;
 
     int sampleIndex = (int)( vars->mute_time / shdr->sampleInt );
-    vars->mute_start_samp = sampleIndex;
+    vars->mute_start_samp = std::max( vars->windowStartSample, sampleIndex );
 
     taper_start1 = taper_end1 = sampleIndex;
 
     sampleIndex = (int)( vars->mute_time2 / shdr->sampleInt );
-    vars->mute_end_samp   = sampleIndex;
+    vars->mute_end_samp   = std::min( vars->windowEndSample+1, std::min( vars->mute_end_samp+vars->taperLengthSamples, shdr->numSamples ) );
 
     taper_start2 = taper_end2 = sampleIndex;
 
@@ -778,15 +802,24 @@ void params_mod_mute_( csParamDef* pdef ) {
   pdef->addValue( "0", VALTYPE_NUMBER, "Mute taper length" );
 
   pdef->addParam( "taper_type", "Type of mute taper.", NUM_VALUES_FIXED );
-  pdef->addValue( "linear", VALTYPE_OPTION );
+  pdef->addValue( "cos", VALTYPE_OPTION );
   pdef->addOption( "linear", "Apply linear taper" );
   pdef->addOption( "cos", "Apply cosine taper" );
 
   pdef->addParam( "taper_apply", "How to apply the taper.", NUM_VALUES_FIXED );
-  pdef->addValue( "center", VALTYPE_OPTION );
+  pdef->addValue( "minimum", VALTYPE_OPTION );
   pdef->addOption( "minimum", "The minimim value of the taper (0) is at the mute time" );
   pdef->addOption( "center", "Taper is centered at the mute time" );
   pdef->addOption( "maximum", "The maximim value of the taper (1) is at the mute time" );
+
+
+  // not fully implemented yet:
+  //  pdef->addParam( "window", "Restrict mute to certain window?", NUM_VALUES_FIXED, "If specified, mute will not be applied outside of the specified window, including no tapering" );
+  //  pdef->addValue( "no", VALTYPE_OPTION);
+  //  pdef->addOption( "no", "Do not restrict mute to a window: Apply mute over full trace length" );
+  //  pdef->addOption( "yes", "Apply mute only inside  specified window" );
+  //  pdef->addValue( "", VALTYPE_NUMBER, "Start time" );
+  //  pdef->addValue( "", VALTYPE_NUMBER, "End time" );
 
   pdef->addParam( "kill", "Kill zero traces?", NUM_VALUES_FIXED );
   pdef->addValue( "no", VALTYPE_OPTION );

@@ -16,6 +16,11 @@ public:
   static int const RESAMPLE = 52;
   static int const DESIGNATURE = 53;
 
+  static int const TAPER_NONE     = -1;
+  static int const TAPER_COSINE   = 1;
+  static int const TAPER_HANNING  = 2;
+  static int const TAPER_BLACKMAN = 3;
+
   static bool Powerof2( int nx, int* m, int* twopm );
   //  static bool fft( int dir, int power_of_two, double *realValues, double *imagValues );
   static bool fft( int dir, int power_of_two, double *realValues, double *imagValues, bool doNormalisation );
@@ -45,9 +50,14 @@ public:
 
   void highPass( float* samples, float order, float cutOffFreqHz, bool outputImpulseResponse );
   void lowPass( float* samples, float order, float cutOffFreqHz, bool outputImpulseResponse );
+// Notch filter:
+  void notchFilter( float* samples, bool addNoise );
+  double const* setupNotchFilter( float notchFreqHz, float notchWidthHz, float order, bool isCosineTaper );
+  float resample( float* samples );
+  float resample( float* samples, bool applyFilter, bool applyNorm );
+  float resample( float* samples, float order, float cutOffFreqHz, bool applyFilter, bool applyNorm );
 
-  void resample( float* samples );
-  void resample( float* samples, float order, float cutOffFreqHz );
+  //  void applyQCompensation( float* samples, float qvalue, float freqRef, bool applyAmp, bool applyPhase );
 
   /**
    * Apply forward FFT transform
@@ -72,6 +82,10 @@ public:
   bool fft_forward( float const* samples, float* ampSpec, float* phaseSpec, bool doNormalisation = true );
 
   /**
+   * Apply inverse FFT transform
+   */
+  bool fft_inverse( bool doNormalisation = true );
+  /**
    * Apply inverse FFT transform from given amplitude & phase spectrum.
    * @param samples      Input data. Consists of either
    *                      a) Concatenated amplitude and phase spectra, numFFTSamples() number of samples, or
@@ -89,22 +103,29 @@ public:
   double const* realData() const { return myBufferReal; }
   double const* imagData() const { return myBufferImag; }
 
+  double* getRealDataPointer() { return myBufferReal; }
+  double* getImagDataPointer() { return myBufferImag; }
+  void convertToAmpPhase( float* ampSpec, float* phaseSpec );
+  
   /**
    * @return Number of samples in FFT transform of input data. Equals nearest power of 2 to numInputSamples().
    */
   int numFFTSamples() const { return myNumFFTSamplesIn; }
-  
+  int numFFTSamplesOut() const { return myNumFFTSamplesOut; }
+  float sampleIntFreqHz() const;
   /**
    * @return Number of samples in input data.
    */
   int numInputSamples() const { return myNumSamplesIn; }
   
+
+  static void applyTaper( int taperType, int taperLengthInSamples, int numSamplesIn, float* samples );
+
 protected:
   void filter( float* samples, int filterType );
   void init();
   void setBuffer( float const* samples );
   void convertFromAmpPhase( float const* ampSpec, float const* phaseSpec );
-  void convertToAmpPhase( float* ampSpec, float* phaseSpec );
 
   /// Number of samples in input data
   int myNumSamplesIn;
@@ -125,6 +146,7 @@ protected:
   int myTwoPowerOut;
   double* myBufferReal;
   double* myBufferImag;
+  double* myNotchFilter;
 
   double* myFilterWavelet;
   int     myLengthFilterWavelet;

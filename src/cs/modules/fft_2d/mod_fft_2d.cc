@@ -103,8 +103,10 @@ void init_mod_fft_2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
   edef->setTraceSelectionMode( TRCMODE_ENSEMBLE );
 
   // Initialize
-  vars->KHeader        = "k-wavenumber";
-  vars->padHeader      = "fft2d-padtrace";
+  std::string KHeader_OLD   = "k-wavenumber";
+  std::string padHeader_OLD = "fft2d-padtrace";
+  vars->KHeader        = "k_wavenumber";
+  vars->padHeader      = "fft2d_padtrace";
   vars->ntraceLastCall = 0;
   vars->fixedNtr       = 0;
   vars->direction      = 0;
@@ -116,7 +118,7 @@ void init_mod_fft_2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
   vars->firstCall      = true;
   vars->normalize      = false;
   vars->taperType      = TAPER_NONE;
-  vars->taperLengthInSamples = 10;
+  vars->taperLengthInSamples = 20 / shdr->sampleInt;
 
   vars->nSamplesInput   = shdr->numSamples;
   vars->sampleRateInput = shdr->sampleInt;
@@ -139,31 +141,81 @@ void init_mod_fft_2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
     }
   }
 
+  //--------------------------------------------------
   param->getString( "direction", &text ); 
   text = toLowerCase( text );
-
-  int direction = 0;
-
   // FORWARD
-  if ( text.compare("forward") == 0 ) {
-    direction = FORWARD;
+  if( text.compare("forward") == 0 ) {
+    vars->direction = FORWARD;
     vars->direction_str = "FORWARD";
-    log->line("FORWARD transform.");
+  }
+  else if( text.compare("inverse") == 0 ) {
+    vars->direction = INVERSE;
+    vars->direction_str = "INVERSE";
+  }
+  else {
+    log->line("ERROR: Unknown 'direction' parameter specified: %s", text.c_str() );
+    env->addError();
+  }
 
-    // Override domain stored in the superheader if it conflicts with the user parameters.
-    bool override_domain = false;
-    if( param->exists("override") ) {
-      param->getString("override", &text);
-      text = toLowerCase( text );
-      if( text.compare("yes") == 0 ) {
-        override_domain = true;
-      } else if( text.compare("no")  == 0 ) {
-        override_domain = false;
-      } else {
-        log->line("ERROR:Unknown 'override_domain' option: %s", text.c_str());
+  // Override domain stored in the superheader if it conflicts with the user parameters.
+  if( param->exists("override") ) {
+    param->getString("override", &text);
+    text = toLowerCase( text );
+    bool overrideFK = false;
+    if( text.compare("fk") == 0 ) {
+      shdr->domain = DOMAIN_FK;
+      overrideFK = true;
+    }
+    //      else if( text.compare("fx") == 0 ) {
+    //   shdr->domain = DOMAIN_FX;
+    //  }
+    else if( text.compare("xt") == 0 ) {
+      shdr->domain = DOMAIN_XT;
+    }
+    else if( text.compare("xd") == 0 ) {
+      shdr->domain = DOMAIN_XD;
+    }
+    else if( text.compare("no") == 0 ) {
+      // Nothing
+    }
+    else {
+      log->line("ERROR: Unknown option '%s'", text.c_str() );
+      env->addError();
+    }
+    if( overrideFK ) {
+      // bool isFXDomain = (shdr->domain == DOMAIN);
+      param->getString("override", &text, 1);
+      if( text.compare("amp_phase") == 0 ) {
+        //shdr->fftDataType = isFXDomain ? FX_AMP_PHASE : FK_AMP_PHASE;
+        shdr->fftDataType = FK_AMP_PHASE;
+      }
+      else if( text.compare("complex") == 0 ) {
+        shdr->fftDataType = FK_COMPLEX;
+      }
+      else if( text.compare("real_imag") == 0 ) {
+        shdr->fftDataType = FK_REAL_IMAG;
+      }
+      else if( text.compare("amp") == 0 ) {
+        shdr->fftDataType = FK_AMP;
+      }
+      else if( text.compare("psd") == 0 ) {
+        shdr->fftDataType = FK_PSD;
+      }
+      else {
+        log->line("ERROR: Unknown option '%s'", text.c_str() );
         env->addError();
       }
+      if( vars->direction == INVERSE ) {
+        param->getInt("override", &shdr->numSamplesXT, 2);
+        param->getFloat("override", &shdr->sampleIntXT, 3);
+      }
     }
+  }
+
+  // FORWARD
+  if( vars->direction == FORWARD ) {
+    log->line("FORWARD transform.");
 
     // Taper the input
     if( param->exists("taper_type") ) {
@@ -193,7 +245,9 @@ void init_mod_fft_2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
         log->line("ERROR:Cannot specify 'taper_len' for Hanning taper, taper length is fixed to half the trace length");
         env->addError();
       } else {
-        param->getInt("taper_len", &vars->taperLengthInSamples);
+        float taperLength;
+        param->getFloat("taper_len", &taperLength);
+        vars->taperLengthInSamples = (int)round( taperLength / shdr->sampleInt );
       }
     }
 
@@ -214,12 +268,8 @@ void init_mod_fft_2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
 
     // Check the input domain and set the output domain.
     if( shdr->domain != DOMAIN_XT && shdr->domain != DOMAIN_XD ) {
-      if ( override_domain ) {
-        log->warning("Input traces do not appear to be in XT (or XD) domain but 'override' specified." );
-      } else {
-        log->line("ERROR:Input traces are not in XT (or XD) domain. FFT forward transform not possible." );
-        env->addError();
-      }
+      log->line("ERROR:Input traces are not in XT (or XD) domain. FFT forward transform not possible." );
+      env->addError();
     }
 
     // Optimize trace length for FFTW
@@ -237,8 +287,7 @@ void init_mod_fft_2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
       nout = nin;
       log->line("Trace length NOT optimized for FFT: %d.", nin );
     }
-    vars->nSamplesToFFT = nout;
-    //    vars->nSamplesToFFT = vars->nSamplesTime;
+    vars->nSamplesToFFT = (int)((nout+1)/2)*2;  // Make sure number of FFT samples is even number
     vars->nFreqToFFT    = vars->nSamplesToFFT/2+1;
 
     // Output option
@@ -327,9 +376,23 @@ void init_mod_fft_2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
     vars->deltaK = 1.0;
 
     // Required headers
-    if( !hdef->headerExists( vars->padHeader ) ) hdef->addHeader( TYPE_INT, vars->padHeader );
+    if( !hdef->headerExists( vars->padHeader ) ) {
+      if( hdef->headerExists( padHeader_OLD ) ) {
+        vars->padHeader = padHeader_OLD;
+      }
+      else {
+        hdef->addHeader( TYPE_INT, vars->padHeader );
+      }
+    }
     vars->padID = hdef->headerIndex( vars->padHeader );
-    if( !hdef->headerExists( vars->KHeader ) ) hdef->addHeader( TYPE_FLOAT, vars->KHeader );
+    if( !hdef->headerExists( vars->KHeader ) ) {
+      if( hdef->headerExists( KHeader_OLD ) ) {
+        vars->KHeader = KHeader_OLD;
+      }
+      else {
+        hdef->addHeader( TYPE_FLOAT, vars->KHeader );
+      }
+    }
     vars->KID = hdef->headerIndex( vars->KHeader );    
 
     // Evaluate frequency info
@@ -351,13 +414,11 @@ void init_mod_fft_2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
     shdr->fftDataType = vars->fftDataType;
 
     // INVERSE
-  } else   if ( text.compare("inverse") == 0 ) {
-    direction = INVERSE;
-    vars->direction_str = "INVERSE";
+  }
+  else if( vars->direction == INVERSE ) {
     log->line("INVERSE transform.");
 
     if( param->exists("output") ) {log->warning("Option 'ouput' ignored for INVERSE." ); }
-    if( param->exists("override") ) {log->warning("Option 'override' ignored for INVERSE." ); }
     if( param->exists("fix_ntr") ) {log->warning("Option 'fix_ntr' ignored for INVERSE." ); }
     if( param->exists("length_opt") ) {log->warning("Option 'length_opt' ignored for INVERSE." ); }
     if( param->exists("taper_type") ) {log->warning("Option 'taper_type' ignored for INVERSE." ); }
@@ -429,12 +490,7 @@ void init_mod_fft_2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
     shdr->domain      = DOMAIN_XT;    
     shdr->fftDataType = FK_NONE;
 
-  } else {
-    log->line("ERROR: Unknown 'direction' parameter specified: %s", text.c_str() );
-    env->addError();
   }
-  vars->direction = direction;
-
 }
 
 //*******************************************************************************************
@@ -496,15 +552,13 @@ void exec_mod_fft_2d_(
     vars->ntraceLastCall = traceGather->numTraces();
   }
 
-  int direction = vars->direction;
-
   int isamp, itrc, index;
   float           *fftR;
   fftwf_complex   *fftC;
   fftwf_plan  fftPlan2D;
 
   // FORWARD  
-  if ( direction == FORWARD ){
+  if ( vars->direction == FORWARD ){
 
     // Apply taper to input traces (time direction only!)
     if( vars->taperType == TAPER_COSINE || vars->taperType == TAPER_HANNING ) {
@@ -743,7 +797,7 @@ void exec_mod_fft_2d_(
   }  
 
   // INVERSE
-  if ( direction == INVERSE ){
+  if ( vars->direction == INVERSE ){
     int nx    = numTracesIn;
     int nxp   = nx;
 
@@ -882,19 +936,28 @@ void params_mod_fft_2d_( csParamDef* pdef ) {
   pdef->addOption( "hanning", "Apply 'Hanning' cosine taper to input trace. Taper length is 1/2 trace" );
   pdef->addOption( "blackman", "Apply 'Blackman' taper (alpha=0.16) to input trace" );
 
-  pdef->addParam( "taper_len", "For FORWARD transform, taper length in number of samples. THIS FEATURE IS UNTESTED!", NUM_VALUES_FIXED );
-  pdef->addValue( "10", VALTYPE_NUMBER, "Length in number of samples" );
+  pdef->addParam( "taper_len", "For FORWARD transform, taper length [ms]. THIS FEATURE IS UNTESTED!", NUM_VALUES_FIXED );
+  pdef->addValue( "20", VALTYPE_NUMBER, "Taper length [ms]" );
 
   pdef->addParam( "norm", "Normalize output. THIS FEATURE IS UNTESTED!", NUM_VALUES_FIXED );
   pdef->addValue( "no", VALTYPE_OPTION );
   pdef->addOption( "yes", "Normalize output values", "Example: Using the same input data but with different amount of added zeros, the amplitude spectrum will look exactly the same for the same output frequency" );
   pdef->addOption( "no", "Do not normalize output values" );
 
-  pdef->addParam( "override", "For FORWARD transform, override the domain specified in the superheader.", NUM_VALUES_FIXED );
+  pdef->addParam( "override", "Override domain specified in superheader.", NUM_VALUES_VARIABLE );
   pdef->addValue( "no", VALTYPE_OPTION );
-  pdef->addOption( "yes", "Override domain found in super header" );
   pdef->addOption( "no", "Acknowledge domain found in super header" );
-
+  pdef->addOption( "fk", "Override domain found in super header. Set to FK." );
+  pdef->addOption( "xt", "Override domain found in super header. Set to XT (time)." );
+  pdef->addOption( "xd", "Override domain found in super header. Set to XD (depth)." );
+  pdef->addValue( "amp_phase", VALTYPE_OPTION, "Override data type" );
+  pdef->addOption( "amp_phase", "Set FFT data type to amplitude/phase spectrum" );
+  pdef->addOption( "amp", "Set FFT data type to amplitude spectrum" );
+  pdef->addOption( "psd", "Set FFT data type to psd spectrum" );
+  pdef->addOption( "complex", "Set FFT data type to complex spectrum" );
+  pdef->addOption( "real_imag", "Set FFT data type to real/imaginary spectrum" );
+  pdef->addValue( "", VALTYPE_NUMBER, "Output number of samples (inverse transform only)" );
+  pdef->addValue( "", VALTYPE_NUMBER, "Output sample interval [ms] (inverse transform only)" );
 }
 
 extern "C" void _params_mod_fft_2d_( csParamDef* pdef ) {

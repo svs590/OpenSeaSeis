@@ -121,10 +121,10 @@ void init_mod_convolution_( csParamManager* param, csInitPhaseEnv* env, csLogWri
   }
   if( sampleInt_ms != shdr->sampleInt ) {
     if( !overrideSampleInt ) {
-      log->error("ASCII input file has different sample interval (=%f ms) than input data (=%f ms). Unsupported case.", sampleInt_ms, shdr->sampleInt);
+      log->error("Wavelet input file has different sample interval (=%f ms) than input data (=%f ms). Unsupported case.", sampleInt_ms, shdr->sampleInt);
     }
     else {
-      log->warning("ASCII input file has different sample interval (=%f ms) than input data (=%f ms). Ignored.", sampleInt_ms, shdr->sampleInt);
+      log->warning("Wavelet input file has different sample interval (=%f ms) than input data (=%f ms). Ignored.", sampleInt_ms, shdr->sampleInt);
     }
   }
   if( vars->asciiParam->numSamples() <= 0 ) {

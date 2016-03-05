@@ -60,6 +60,9 @@ public:
   int     numSamples;
   float   sampleInt;
   int     domain;
+  int     fftDataType;
+  int     numSamplesXT;
+  float   sampleIntXT;
   double  grid_orig_x;
   double  grid_orig_y;
   int     grid_orig_il;

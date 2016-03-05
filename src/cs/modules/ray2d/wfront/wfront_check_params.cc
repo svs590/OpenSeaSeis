@@ -143,7 +143,7 @@ int wfront_check_params(
 
   for( int i = 0; i < nreclines; i++ ) {
     if( lay_rec[i] != int_rec[i] && lay_rec[i] != (int_rec[i] - 1) ) {
-      fprintf(stderr,"Receiver line %d: Receivers are not located in a layer beneath or above the interface. Set layer number (%d) correctly\n", i+1, lay_rec[i]);
+      fprintf(stderr,"Receiver line %d: Receivers are not located in a layer beneath or above the interface (%d). Set layer number (%d) correctly\n", i+1, int_rec[i], lay_rec[i]);
       return -1;
     }
   }

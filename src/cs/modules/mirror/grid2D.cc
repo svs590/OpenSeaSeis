@@ -96,95 +96,98 @@ void interpolate2D_regular_grid( int numPointsIn,
       assignedPoint = false;
       iteration += 1;
 
-    for( int ix = 1; ix < nxOut-1; ix++ ) {
-//      double xout = ix*xinc + p1.x;
-      int iy_start = 0;
-      int iy_end = nyOut-1;
-      while( iy_start < nyOut && zout[ix*nyOut+iy_start] == no_value ) iy_start += 1;
-      while( iy_end > iy_start && zout[ix*nyOut+iy_end] == no_value ) iy_end -= 1;
-      
-      for( int iy = iy_start; iy < iy_end; iy++ ) {
-        int bin = ix*nyOut + iy;
-        if( zout[bin] == no_value ) {
-          double z_y1   = zout[ix*nyOut + iy-1];
-          double z      = z_y1;
-          double weight = 1.0;
-          int iy2 = iy+1;
-          while( zout[ix*nyOut + iy2] == no_value ) iy2 += 1;
-          //        iy2 = iy+1;
-          double z_y2 = zout[ix*nyOut + iy2];
-          double w = 1/(double)(iy2-iy);
-          if( zout[ix*nyOut + iy2] != no_value ) {
-            z += z_y2 * w;
-            weight += w;
-          }
-          double z_x1 = zout[(ix-1)*nyOut + iy];
-          if( z_x1 != no_value ) {
-            z += z_x1;
-            weight += 1.0;
-          }
-          double z_x2 = zout[(ix+1)*nyOut + iy];
-          if( z_x2 != no_value ) {
-            z += z_x2;
-            weight += 1.0;
-          }
-          zout[bin] = z/weight;
-          weights[bin] = no_value;   // Signal that this bin has been re-interpolated
-          assignedPoint = true;
-        }
-      }
-    }
-    
-    for( int iy = 1; iy < nyOut-1; iy++ ) {
-//      double yout = iy*yinc + p1.y;
-      int ix_start = 0;
-      int ix_end = nxOut-1;
-      while( ix_start < nxOut && ( zout[ix_start*nyOut+iy] == no_value || weights[ix_start*nyOut+iy] == no_value ) ) ix_start += 1;
-      while( ix_end > ix_start && ( zout[ix_end*nyOut+iy] == no_value || weights[ix_end*nyOut+iy] == no_value ) ) ix_end -= 1;
-      
-      for( int ix = ix_start; ix < ix_end; ix++ ) {
-        int bin = ix*nyOut + iy;
-        if( zout[bin] == no_value || weights[bin] == no_value ) {
-          double z_x1   = zout[(ix-1)*nyOut + iy];
-          double z      = z_x1;
-          double weight = 1.0;
-          int ix2 = ix+1;
-          while( zout[ix2*nyOut + iy] == no_value || weights[ix2*nyOut + iy] == no_value ) ix2 += 1;
-          double z_x2 = zout[ix2*nyOut + iy];
-          double w = 1/(double)(ix2-ix);
-          z += z_x2 * w;
-          weight += w;
-          double z_y1 = zout[ix*nyOut + iy-1];
-          double z_y2 = zout[ix*nyOut + iy+1];
-          
-          if( z_y1 != no_value && weights[ix*nyOut + iy-1] != no_value ) {
-            z += z_y1;
-            weight += 1.0;
-          }
-          if( z_y2 != no_value && weights[ix*nyOut + iy+1] != no_value ) {
-            z += z_y2;
-            weight += 1.0;
-          }
-          if( weights[bin] == no_value ) {
-            zout[bin] = 0.5 * ( zout[bin] + z/weight );
-          }
-          else {
+      // Interpolate empty bins along Y axis
+      for( int ix = 1; ix < nxOut-1; ix++ ) {
+        //      double xout = ix*xinc + p1.x;
+        int iy_start = 0;
+        int iy_end = nyOut-1;
+        while( iy_start < nyOut && zout[ix*nyOut+iy_start] == no_value ) iy_start += 1;
+        while( iy_end > iy_start && zout[ix*nyOut+iy_end] == no_value ) iy_end -= 1;
+        
+        for( int iy = iy_start; iy < iy_end; iy++ ) {
+          int bin = ix*nyOut + iy;
+          if( zout[bin] == no_value ) {
+            double z_y1   = zout[ix*nyOut + iy-1];
+            double z      = z_y1;
+            double weight = 1.0;
+            int iy2 = iy+1;
+            while( zout[ix*nyOut + iy2] == no_value ) iy2 += 1;
+            //        iy2 = iy+1;
+            double z_y2 = zout[ix*nyOut + iy2];
+            double w = 1/(double)(iy2-iy);
+            if( zout[ix*nyOut + iy2] != no_value ) {
+              z += z_y2 * w;
+              weight += w;
+            }
+            double z_x1 = zout[(ix-1)*nyOut + iy];
+            if( z_x1 != no_value ) {
+              z += z_x1;
+              weight += 1.0;
+            }
+            double z_x2 = zout[(ix+1)*nyOut + iy];
+            if( z_x2 != no_value ) {
+              z += z_x2;
+              weight += 1.0;
+            }
             zout[bin] = z/weight;
+            weights[bin] = no_value;   // Signal that this bin has been re-interpolated
+            assignedPoint = true;
           }
-          assignedPoint = true;
         }
       }
-    }
-
-  for( int ix = 0; ix < nxOut; ix++ ) {
-    for( int iy = 0; iy < nyOut; iy++ ) {
-      int bin = ix*nyOut + iy;
-      if( zout[bin] != no_value ) {
-        weights[bin] = 0.0;
+      
+      // Interpolate empty bins along X axis
+      //      for( int iy = 1; iy < nyOut-1; iy++ ) {
+      for( int iy = 0; iy < nyOut; iy++ ) {
+        //      double yout = iy*yinc + p1.y;
+        int ix_start = 0;
+        int ix_end = nxOut-1;
+        while( ix_start < nxOut && ( zout[ix_start*nyOut+iy] == no_value || weights[ix_start*nyOut+iy] == no_value ) ) ix_start += 1;
+        while( ix_end > ix_start && ( zout[ix_end*nyOut+iy] == no_value || weights[ix_end*nyOut+iy] == no_value ) ) ix_end -= 1;
+        
+        for( int ix = ix_start; ix < ix_end; ix++ ) {
+          int bin = ix*nyOut + iy;
+          if( zout[bin] == no_value || weights[bin] == no_value ) {
+            double z_x1   = zout[(ix-1)*nyOut + iy];
+            double z      = z_x1;
+            double weight = 1.0;
+            int ix2 = ix+1;
+            while( zout[ix2*nyOut + iy] == no_value || weights[ix2*nyOut + iy] == no_value ) ix2 += 1;
+            double z_x2 = zout[ix2*nyOut + iy];
+            double w = 1/(double)(ix2-ix);
+            z += z_x2 * w;
+            weight += w;
+            double z_y1 = zout[ix*nyOut + iy-1];
+            double z_y2 = zout[ix*nyOut + iy+1];
+            
+            if( z_y1 != no_value && weights[ix*nyOut + iy-1] != no_value ) {
+              z += z_y1;
+              weight += 1.0;
+            }
+            if( z_y2 != no_value && weights[ix*nyOut + iy+1] != no_value ) {
+              z += z_y2;
+              weight += 1.0;
+            }
+            if( weights[bin] == no_value ) {
+              zout[bin] = 0.5 * ( zout[bin] + z/weight );
+            }
+            else {
+              zout[bin] = z/weight;
+            }
+            assignedPoint = true;
+          }
+        }
       }
-    }
-  }
-
+      
+      for( int ix = 0; ix < nxOut; ix++ ) {
+        for( int iy = 0; iy < nyOut; iy++ ) {
+          int bin = ix*nyOut + iy;
+          if( zout[bin] != no_value ) {
+            weights[bin] = 0.0;
+          }
+        }
+      }
+      
     } // END while iteration
   }
 

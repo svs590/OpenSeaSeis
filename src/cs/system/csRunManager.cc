@@ -519,7 +519,7 @@ int csRunManager::runInitPhase( char const* filenameFlow, FILE* f_flow, cseis_ge
       paramDef.clear();
       // Check module name, parameters, number of values & options
       module->getParamDef( &paramDef );
-      if( !checkParameters( module->getName(), &paramDef, userParamList[imodule] ) ) {
+      if( !csRunManager::checkParameters( module->getName(), &paramDef, userParamList[imodule], myLog ) ) {
         throw( cseis_geolib::csException("Error occurred while checking module parameters. See log file for details.") );
       }
       module->submitInitPhase( &paramManager, myLog, myTables, myNumTables );
@@ -565,6 +565,11 @@ int csRunManager::runInitPhase( char const* filenameFlow, FILE* f_flow, cseis_ge
     for( int i = 0; i < userParamList[imodule]->size(); i++ ) {
       if( paramManager.getNumValueCalls(i) == 0 ) {
         myLog->line( " Warning: Unused user parameter in module setup: '%s'", userParamList[imodule]->at(i)->getName().c_str() );
+        int numLines = paramManager.getNumLines(userParamList[imodule]->at(i)->getName().c_str());
+        if( numLines > 1 ) {
+          myLog->error( modules[imodule]->getName(), imodule+1, "Duplicate user parameter '%s' (occurs %d times)",
+                        userParamList[imodule]->at(i)->getName().c_str(), numLines );
+        }
       }
     }
   }
@@ -868,14 +873,14 @@ int csRunManager::runExecPhase() {
  * Check all user defined parameters/values etc
  *
  */
-bool csRunManager::checkParameters( char const* moduleName, csParamDef const* paramDef, cseis_geolib::csVector<csUserParam*>* userParams ) {
+bool csRunManager::checkParameters( char const* moduleName, csParamDef const* paramDef, cseis_geolib::csVector<csUserParam*>* userParams, csLogWriter* log ) {
   bool returnFlag = true;
   if( paramDef->module() == NULL ) {
-    myLog->line("Program bug: Module name not defined in parameter definition. Should be '%s'", moduleName );
+    log->line("Program bug: Module name not defined in parameter definition. Should be '%s'", moduleName );
     return false;
   }
   if( strcmp( moduleName, paramDef->module()->name() ) ) {
-    myLog->line("Program bug: Inconsistent module names between parameter definition: '%s', and method definition: '%s'\n", paramDef->module()->name(), moduleName );
+    log->line("Program bug: Inconsistent module names between parameter definition: '%s', and method definition: '%s'\n", paramDef->module()->name(), moduleName );
     returnFlag = false;
   }
 
@@ -905,7 +910,7 @@ bool csRunManager::checkParameters( char const* moduleName, csParamDef const* pa
       if( !strcmp(userParamName,"debug") || !strcmp(userParamName,"version") ) {
         continue;
       }
-      myLog->line("Error: Unknown user specified parameter: '%s'", userParamName);
+      log->line("Error: Unknown user specified parameter: '%s'", userParamName);
       returnFlag = false;
       continue;  // Check other parameters
     }
@@ -917,12 +922,12 @@ bool csRunManager::checkParameters( char const* moduleName, csParamDef const* pa
     int nDefinedValues = valueDefList.size();   // Number of values DEFINED for this parameter
 
     if( paramDefList.at(ip)->type() == NUM_VALUES_FIXED && nUserValues < nDefinedValues ) {
-      myLog->line("Error: Too few user specified values for parameter '%s'. Required: %d, found: %d", userParamName, nDefinedValues, nUserValues );
+      log->line("Error: Too few user specified values for parameter '%s'. Required: %d, found: %d", userParamName, nDefinedValues, nUserValues );
       returnFlag = false;
       continue;
     }
     else if( nUserValues == 0 ) {
-      myLog->line("Error: No value specified for parameter '%s'.", userParamName );
+      log->line("Error: No value specified for parameter '%s'.", userParamName );
       returnFlag = false;
       continue;
     }
@@ -935,7 +940,7 @@ bool csRunManager::checkParameters( char const* moduleName, csParamDef const* pa
       if( valueType == VALTYPE_NUMBER ) {
         std::string text = userParam->getValue( i );
         if( !valueTmp.convertToNumber( userParam->getValue( i ) ) ) {
-          myLog->line("Error: User parameter '%s': Value is not recognised as valid number: '%s'", userParamName, text.c_str() );
+          log->line("Error: User parameter '%s': Value is not recognised as valid number: '%s'", userParamName, text.c_str() );
           returnFlag = false;
         }
       }
@@ -975,13 +980,13 @@ bool csRunManager::checkParameters( char const* moduleName, csParamDef const* pa
           }
         }
         if( !optionFound ) {
-          myLog->line("Error: Unknown user specified option for parameter '%s':  %s", userParamName, userOptionName );
-          myLog->write("Valid options are: ");
+          log->line("Error: Unknown user specified option for parameter '%s':  %s", userParamName, userOptionName );
+          log->write("Valid options are: ");
           for( int io = 0; io < nOptions; io++ ) {
-            myLog->write("'%s' (%s)", optionList.at(io)->name(), optionList.at(io)->desc());
-            if( io < nOptions-1 ) myLog->write(" / ");
+            log->write("'%s' (%s)", optionList.at(io)->name(), optionList.at(io)->desc());
+            if( io < nOptions-1 ) log->write(" / ");
           }
-          myLog->line("");
+          log->line("");
           returnFlag = false;
         }
       } // END if

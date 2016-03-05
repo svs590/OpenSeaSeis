@@ -28,7 +28,10 @@ namespace mod_statics {
     bool   isApplyMode;
     int hdrID_time_samp1_s;
     int hdrID_time_samp1_us;
+    int hdrID_stat_res;
     cseis_geolib::csInterpolation* interpol;
+    bool  applyFraction;
+    bool isSampleDomain;
   };
 }
 using mod_statics::VariableStruct;
@@ -58,8 +61,27 @@ void init_mod_statics_( csParamManager* param, csInitPhaseEnv* env, csLogWriter*
   vars->interpol  = NULL;
   vars->hdrID_time_samp1_s = -1;
   vars->hdrID_time_samp1_us = -1;
+  vars->hdrID_stat_res     = -1;
+  vars->applyFraction = true;
+  vars->isSampleDomain = false;
 
 //---------------------------------------------
+
+  string text;
+  if( param->exists("domain") ) {
+    param->getString( "domain", &text );
+    if( !text.compare( "sample" ) ) {
+      vars->isSampleDomain = true;
+    }
+    else if( !text.compare( "time" ) ) {
+      vars->isSampleDomain = false;
+    }
+    else {
+      log->line("Domain option not recognized: '%s'.", text.c_str());
+      env->addError();
+    }
+  }
+
   // For now, stick to the default interpolation re number of coefficients etc
   int numCoefficients = 8;
   if( param->exists("ncoef") ) {
@@ -74,8 +96,6 @@ void init_mod_statics_( csParamManager* param, csInitPhaseEnv* env, csLogWriter*
       log->warning("Number of interpolation coefficients too large: %d.", numCoefficients);
     }
   }
-
-  vars->interpol = new csInterpolation( shdr->numSamples, shdr->sampleInt, numCoefficients );
 
   if( param->exists("header") ) {
     std::string headerName;
@@ -93,7 +113,6 @@ void init_mod_statics_( csParamManager* param, csInitPhaseEnv* env, csLogWriter*
   }
 
   if( param->exists("mode") ) {
-    string text;
     param->getString("mode",&text);
     if( !text.compare("apply") ) {
       vars->isApplyMode = true;
@@ -106,8 +125,23 @@ void init_mod_statics_( csParamManager* param, csInitPhaseEnv* env, csLogWriter*
     }
   }
 
+  if( param->exists("apply_fraction") ) {
+    string text;
+    param->getString("apply_fraction",&text);
+    if( !text.compare("yes") ) {
+      vars->applyFraction = true;
+    }
+    else if( !text.compare("no") ) {
+      vars->applyFraction = false;
+    }
+    else {
+      log->error("Unknown option: '%s'", text.c_str());
+    }
+  }
+
   if( param->exists("bulk_shift") ) {
     param->getFloat( "bulk_shift", &vars->bulkShift_ms );  // [ms]
+    if( vars->isSampleDomain ) vars->bulkShift_ms *= shdr->sampleInt;
   }
   else {
     if( !vars->doHeaderStatic ) {
@@ -121,6 +155,14 @@ void init_mod_statics_( csParamManager* param, csInitPhaseEnv* env, csLogWriter*
     vars->bulkShift_ms *= -1.0;
   }
 
+  if( vars->applyFraction ) {
+    vars->interpol = new csInterpolation( shdr->numSamples, shdr->sampleInt, numCoefficients );
+  }
+  if( !hdef->headerExists( HDR_STAT_RES.name ) ) {
+    hdef->addStandardHeader( HDR_STAT_RES.name );
+  }
+  vars->hdrID_stat_res = hdef->headerIndex( HDR_STAT_RES.name );
+  
   vars->buffer = new float[shdr->numSamples];
   vars->hdrID_time_samp1_s  = hdef->headerIndex( HDR_TIME_SAMP1.name );
   vars->hdrID_time_samp1_us = hdef->headerIndex( HDR_TIME_SAMP1_US.name );
@@ -158,6 +200,7 @@ bool exec_mod_statics_(
   float shift_ms = vars->bulkShift_ms;  // Shift in [ms]
   if( vars->doHeaderStatic ) {
     float stat_hdr = trace->getTraceHeader()->floatValue(vars->hdrId);
+    if( vars->isSampleDomain ) stat_hdr *= shdr->sampleInt;
     if( vars->isApplyMode ) {
       shift_ms += stat_hdr;
     }
@@ -170,10 +213,39 @@ bool exec_mod_statics_(
 
   if( edef->isDebug() ) { log->line("Apply static %f ms", shift_ms); }
 
-  memcpy( vars->buffer, trace->getTraceSamples(), shdr->numSamples*sizeof(float) );
-  vars->interpol->static_shift( shift_ms, vars->buffer, samples );
-
   csTraceHeader* trcHdr = trace->getTraceHeader();
+  bool isFullSample =  ( (float)( (int)round( fabs(shift_ms) / shdr->sampleInt ) ) * shdr->sampleInt == fabs(shift_ms) );
+
+  if( vars->applyFraction && !isFullSample ) {
+    memcpy( vars->buffer, trace->getTraceSamples(), shdr->numSamples*sizeof(float) );
+    vars->interpol->static_shift( shift_ms, vars->buffer, samples );
+    trcHdr->setFloatValue( vars->hdrID_stat_res, 0 );
+  }
+  else {
+    float* samples = trace->getTraceSamples();
+    int shiftSamples = (int)cseis_geolib::SIGN(shift_ms)*(int)( fabs(shift_ms) / shdr->sampleInt );
+    shift_ms = shdr->sampleInt * shiftSamples;
+    float stat_res = shift_ms - shift_ms;
+    trcHdr->setFloatValue( vars->hdrID_stat_res, stat_res );
+    if( shiftSamples < 0 ) {
+      for( int isamp = -shiftSamples; isamp < shdr->numSamples; isamp++ ) {
+        samples[isamp+shiftSamples] = samples[isamp];
+      }
+      for( int isamp = std::max(0,shdr->numSamples+shiftSamples); isamp < shdr->numSamples; isamp++ ) {
+        samples[isamp] = 0;
+      }
+    }
+    else if( shiftSamples > 0 ) {
+      shiftSamples = std::min( shiftSamples, shdr->numSamples );
+      for( int isamp = shdr->numSamples-1; isamp >= shiftSamples; isamp-- ) {
+        samples[isamp] = samples[isamp-shiftSamples];
+      }
+      for( int isamp = 0; isamp < shiftSamples; isamp++ ) {
+        samples[isamp] = 0;
+      }
+    }
+  }
+
   int time_samp1_s  = trcHdr->intValue( vars->hdrID_time_samp1_s );
   int time_samp1_us = trcHdr->intValue( vars->hdrID_time_samp1_us );
   time_samp1_us -= (int)round(shift_ms*1000.0);
@@ -212,8 +284,17 @@ void params_mod_statics_( csParamDef* pdef ) {
 
   pdef->addParam( "ncoef", "Number of interpolation coefficients", NUM_VALUES_FIXED );
   pdef->addValue( "8", VALTYPE_STRING, "Number of interpolation coefficients" );
-}
 
+  pdef->addParam( "apply_fraction", "Apply fractional static beyond full sample interval?", NUM_VALUES_FIXED );
+  pdef->addValue( "yes", VALTYPE_OPTION );
+  pdef->addOption( "yes", "Apply full static including fraction, use sinc interpolation" );
+  pdef->addOption( "no", "Shift samples by N x sample interval without interpolation. Store ,fractional residual static [ms] in trace header 'stat_res'" );
+
+  pdef->addParam( "domain", "Time or sample domain", NUM_VALUES_FIXED, "Values in trace header and/or user parameter 'bulk_shift' are provided in these units" );
+  pdef->addValue( "time", VALTYPE_OPTION );
+  pdef->addOption( "time", "Statics are specified in unit of trace (e.g. [ms] or [hz])" );
+  pdef->addOption( "sample", "Statics are specified in number of samples (may be fractions)" );
+}
 
 extern "C" void _params_mod_statics_( csParamDef* pdef ) {
   params_mod_statics_( pdef );

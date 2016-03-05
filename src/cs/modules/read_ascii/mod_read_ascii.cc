@@ -246,7 +246,7 @@ void init_mod_read_ascii_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
   int maxPosition  = 0;
 
   vars->numHeaders = param->getNumLines( "header" );
-	//   = nLines;   // !CHANGE! Make sure numHeaders is used in all instances of the headers, not list.size() or similar...
+        //   = nLines;   // !CHANGE! Make sure numHeaders is used in all instances of the headers, not list.size() or similar...
   if( vars->numHeaders == 0 ) {
     log->line("User parameter 'header' missing. No headers specified which shall be read in.");
     env->addError();
@@ -271,18 +271,18 @@ void init_mod_read_ascii_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
         Pos pos;
         pos.start  = atoi(valueList.at(1).c_str()) - 1;  // C style index (starting with 0)
         pos.length = atoi(valueList.at(2).c_str());
-				if( pos.start < 0 || pos.length <= 0 ) {
-					log->line("Error: Inconsistent positions given for header %s: start=%d, length=%d",
-										headerName.c_str(), pos.start+1, pos.length);
-					env->addError();
-				}
+        if( pos.start < 0 || pos.length <= 0 ) {
+          log->line("Error: Inconsistent positions given for header %s: start=%d, length=%d",
+                    headerName.c_str(), pos.start+1, pos.length);
+          env->addError();
+        }
         headerPosList.insertEnd( pos );
         if( pos.start + pos.length > maxPosition ) maxPosition = pos.start + pos.length;
       }
     }
   }
-	vars->numHeaders = headerNameList.size();
-	if( vars->numHeaders == 0 ) log->error("No (valid) trace headers specified.");
+  vars->numHeaders = headerNameList.size();
+  if( vars->numHeaders == 0 ) log->error("No (valid) trace headers specified.");
 
 
 //---------------------------------------------------------------
@@ -320,16 +320,17 @@ void init_mod_read_ascii_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
         if( method == METHOD_COLUMNS ) {
           column = atoi(valueList.at(1).c_str()) - 1;  // C style column index (starting with 0)
           keyColumnList.insertEnd( column );
+          if( column > maxNumColumn ) maxNumColumn = column;
         }
         else {
           Pos pos;
           pos.start  = atoi(valueList.at(1).c_str()) - 1;  //  C style column index (starting with 0)
           pos.length = atoi(valueList.at(2).c_str());
-					if( pos.start < 0 || pos.length <= 0 ) {
-						log->line("Error: Inconsistent positions given for key %s: start=%d, length=%d",
-											keyName.c_str(), pos.start+1, pos.length);
-						env->addError();
-					}
+          if( pos.start < 0 || pos.length <= 0 ) {
+            log->line("Error: Inconsistent positions given for key %s: start=%d, length=%d",
+                      keyName.c_str(), pos.start+1, pos.length);
+            env->addError();
+          }
           keyPosList.insertEnd( pos );
         }
       }
@@ -357,11 +358,11 @@ void init_mod_read_ascii_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
 //
   for( int i = 0; i < vars->numHeaders; i++ ) {
     std::string headerName = headerNameList.at(i);
-		bool headerExists = hdef->headerExists( headerName );
+                bool headerExists = hdef->headerExists( headerName );
     if( headerExists || csStandardHeaders::isStandardHeader(headerName) ) {
-			if( !headerExists ) {
-				hdef->addStandardHeader( headerName );
-			}
+                        if( !headerExists ) {
+                                hdef->addStandardHeader( headerName );
+                        }
       vars->headerIndexList->insertEnd( hdef->headerIndex(headerName.c_str()) );
       type_t type = hdef->headerType(headerName.c_str());
       if( type == TYPE_STRING ) {
@@ -455,8 +456,8 @@ void init_mod_read_ascii_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
       if( edef->isDebug() ) log->line("ASCII file, line #%3d: %s", counterLines, buffer);
       valueList.clear();
       tokenize( buffer, valueList );
-      if( valueList.size() < maxNumColumn ) {
-        log->line("Input file contains too few columns. Number of columns found: %d. Maximum column number for key/header: %d", valueList.size(), maxNumColumn);
+      if( valueList.size() < maxNumColumn+1 ) {
+        log->line("Input file contains too few columns. Number of columns found: %d. Maximum column number for key/header: %d. First line:\n%s", valueList.size(), maxNumColumn+1, buffer);
         env->addError();
         break;
       }
@@ -554,54 +555,54 @@ void init_mod_read_ascii_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
 //-----------------------------------------------------------------------------
 // Sort key values
 //
-	bool doSort = false;
-	if( param->exists("sort") ) {
-		string text;
-		param->getString("sort",&text);
+        bool doSort = false;
+        if( param->exists("sort") ) {
+                string text;
+                param->getString("sort",&text);
 
-		if( !text.compare("yes") ) {
-			doSort = true;
-		}
-		else if( !text.compare("no") ) {
-			doSort = false;
-		}
-		else {
-			log->error("Option not recognised: %s", text.c_str());
-		}
-	}
+                if( !text.compare("yes") ) {
+                        doSort = true;
+                }
+                else if( !text.compare("no") ) {
+                        doSort = false;
+                }
+                else {
+                        log->error("Option not recognised: %s", text.c_str());
+                }
+        }
 
-	if( doSort ) {
+        if( doSort ) {
 
-		cseis_geolib::csSortManager sortManager( vars->numKeys, csSortManager::TREE_SORT );
-		sortManager.resetValues( vars->npos );
+                cseis_geolib::csSortManager sortManager( vars->numKeys, csSortManager::TREE_SORT );
+                sortManager.resetValues( vars->npos );
   
-		for( int ikey = 0; ikey < vars->numKeys; ikey++ ) {
-			for( int ipos = 0; ipos < vars->npos; ipos++ ) {
-				double value = vars->keyValues[ikey][ipos];
-				sortManager.setValue( ipos, vars->numKeys-ikey-1, csFlexNumber(value) );
-			}
-		}
+                for( int ikey = 0; ikey < vars->numKeys; ikey++ ) {
+                        for( int ipos = 0; ipos < vars->npos; ipos++ ) {
+                                double value = vars->keyValues[ikey][ipos];
+                                sortManager.setValue( ipos, vars->numKeys-ikey-1, csFlexNumber(value) );
+                        }
+                }
   
-		sortManager.sort();
+                sortManager.sort();
   
-		for( int ikey = 0; ikey < vars->numKeys; ikey++ ) {
-			double* sortedValues = new double[vars->npos];
-			for( int ipos = 0; ipos < vars->npos; ipos++ ) {
-				sortedValues[ipos] = vars->keyValues[ikey][ sortManager.sortedIndex(ipos) ];
-			}
-			delete [] vars->keyValues[ikey];
-			vars->keyValues[ikey] = sortedValues;
-		}
+                for( int ikey = 0; ikey < vars->numKeys; ikey++ ) {
+                        double* sortedValues = new double[vars->npos];
+                        for( int ipos = 0; ipos < vars->npos; ipos++ ) {
+                                sortedValues[ipos] = vars->keyValues[ikey][ sortManager.sortedIndex(ipos) ];
+                        }
+                        delete [] vars->keyValues[ikey];
+                        vars->keyValues[ikey] = sortedValues;
+                }
 
-		for( int ihdr = 0; ihdr < vars->numHeaders; ihdr++ ) {
-			double* sortedValues = new double[vars->npos];
-			for( int ipos = 0; ipos < vars->npos; ipos++ ) {
-				sortedValues[ipos] = vars->headerValues[ihdr][ sortManager.sortedIndex(ipos) ];
-			}
-			delete [] vars->headerValues[ihdr];
-			vars->headerValues[ihdr] = sortedValues;
-		}
-	}
+                for( int ihdr = 0; ihdr < vars->numHeaders; ihdr++ ) {
+                        double* sortedValues = new double[vars->npos];
+                        for( int ipos = 0; ipos < vars->npos; ipos++ ) {
+                                sortedValues[ipos] = vars->headerValues[ihdr][ sortManager.sortedIndex(ipos) ];
+                        }
+                        delete [] vars->headerValues[ihdr];
+                        vars->headerValues[ihdr] = sortedValues;
+                }
+        }
 //-----------------------------------------------------------------------------
 //
   if( checkConsistency ) {
@@ -769,11 +770,13 @@ bool exec_mod_read_ascii_(
   }
 
   int counterKey = 0;
+
   vars->currentPos = 0;  // TEMP ...to make it work in a brute way
+
   while( counterKey < vars->numKeys ) {
     int type = vars->keyTypeList->at(counterKey);
-    if( type == TYPE_FLOAT || type == TYPE_DOUBLE || type == TYPE_INT64 ) {
 
+    if( type == TYPE_FLOAT || type == TYPE_DOUBLE || type == TYPE_INT64 ) {
       while( vars->currentPos < vars->npos && vars->keyValues[counterKey][vars->currentPos] != vars->keyDoubleBuffer[counterKey] ) {
         vars->currentPos++;
       }
@@ -910,8 +913,8 @@ void params_mod_read_ascii_( csParamDef* pdef ) {
 
   pdef->addParam( "key_sps_time", "Use time (precision = 1s) as the key", NUM_VALUES_VARIABLE,
                   "Time in the ASCII file is expected in SPS format (dddhhmmss)" );
-	//  pdef->addValue( "jjjhhmmss", VALTYPE_STRING, "Time format expected in input file. Valid identifiers: j(Julian day, starting at 1 for first day of year), h(hour), m(minute), s(second)", "Example: jjjhhmmss (SPS format)" );
-	pdef->addValue( "", VALTYPE_STRING, "Trace header containing time in UNIX seconds [s] (for example time_samp1)" );
+        //  pdef->addValue( "jjjhhmmss", VALTYPE_STRING, "Time format expected in input file. Valid identifiers: j(Julian day, starting at 1 for first day of year), h(hour), m(minute), s(second)", "Example: jjjhhmmss (SPS format)" );
+        pdef->addValue( "", VALTYPE_STRING, "Trace header containing time in UNIX seconds [s] (for example time_samp1)" );
   pdef->addValue( "", VALTYPE_NUMBER, "Column number/Start position", "Depends on setting of user parameter METHOD" );
   pdef->addValue( "", VALTYPE_NUMBER, "Length", "Only used for method 'positions'");
 

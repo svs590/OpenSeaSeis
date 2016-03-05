@@ -3,6 +3,7 @@
 
 #include "cseis_includes.h"
 #include "csSeismicWriter.h"
+#include "csFileUtils.h"
 #include <sstream>
 #include <ctime>
 
@@ -30,6 +31,7 @@ namespace mod_image {
     bool isTmpFile;
     cseis_system::csSeismicWriter* writer;
     int nTracesOut;
+    bool isFirstCall;
   };
 
    static const int WIGGLE_FILL_NONE   = 0;
@@ -93,6 +95,7 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   vars->writer     = NULL;
   vars->propertiesFilename = "";
   vars->nTracesOut = 0;
+  vars->isFirstCall = true;
 
   int height = 800;
   int width  = 600;
@@ -155,13 +158,9 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   }
   else {
     vars->isTmpFile = true;
-    try {
-      vars->seismicFilename = random_name( tmpfile_template + "", 10, ".cseis" );
-      //      vars->seismicFilename = random_name( "/tmp/tmp_seismic_", 10, ".cseis" );
-      vars->writer = new csSeismicWriter( vars->seismicFilename, 20 );
-    }
-    catch( csException& exc ) {
-      log->error("Error occurred when opening SeaSeis file. System message:\n%s", exc.getMessage() );
+    vars->seismicFilename = random_name( tmpfile_template + "", 10, ".cseis" );
+    if( !csFileUtils::createDoNotOverwrite( vars->seismicFilename ) ) {
+      log->error("Cannot open SeaSeis output file '%s'", vars->seismicFilename.c_str() );
     }
     vars->command.append( " -f " + vars->seismicFilename );
   }
@@ -281,40 +280,40 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
     test = fopen( vars->propertiesFilename.c_str(), "r" );
   }
   */
-  FILE* fp = fopen( vars->propertiesFilename.c_str(), "w" );
+  FILE* foutProp = fopen( vars->propertiesFilename.c_str(), "w" );
 
   vars->command.append( " -p " + vars->propertiesFilename );
 
   if( param->exists( "title" ) ) {
     param->getString( "title", &text );
-    fprintf(fp,"title:%s\n", text.c_str());
+    fprintf(foutProp,"title:%s\n", text.c_str());
   }
   if( param->exists( "title_vert_axis" ) ) {
     param->getString( "title_vert_axis", &text );
-    fprintf(fp,"titleVertAxis:%s\n", text.c_str());
+    fprintf(foutProp,"titleVertAxis:%s\n", text.c_str());
   }
   if( param->exists("disp_scalar")  ) {
     param->getFloat( "disp_scalar", &valueFloat );
-    fprintf(fp,"dispScalar:%e\n", valueFloat);
+    fprintf(foutProp,"dispScalar:%e\n", valueFloat);
   }
   if( param->exists("min_value")  ) {
     param->getFloat( "min_value", &valueFloat );
-    fprintf(fp,"minValue:%e\n", valueFloat );
+    fprintf(foutProp,"minValue:%e\n", valueFloat );
   }
   if( param->exists("max_value")  ) {
     param->getFloat( "max_value", &valueFloat );
-    fprintf(fp,"maxValue:%e\n", valueFloat );
+    fprintf(foutProp,"maxValue:%e\n", valueFloat );
   }
   if( param->exists("time_major_inc")  ) {
     if( !param->exists("time_minor_inc") ) log->error("Both time_major_inc and time_minor_inc need to be specified, or none (automatic setting)."); 
-    fprintf(fp,"isTimeLinesAuto:false\n");
+    fprintf(foutProp,"isTimeLinesAuto:false\n");
     param->getFloat( "time_major_inc", &valueFloat );
-    fprintf(fp,"timeLineMajorInc:%f\n", valueFloat );
+    fprintf(foutProp,"timeLineMajorInc:%f\n", valueFloat );
   }
   if( param->exists("time_minor_inc")  ) {
     if( !param->exists("time_major_inc") ) log->error("Both time_major_inc and time_minor_inc need to be specified, or none (automatic setting)"); 
     param->getFloat( "time_minor_inc", &valueFloat );
-    fprintf(fp,"timeLineMinorInc:%f\n", valueFloat );
+    fprintf(foutProp,"timeLineMinorInc:%f\n", valueFloat );
   }
   if( param->exists("time_max_decimals")  ) {
     param->getInt( "time_max_decimals", &value );
@@ -348,21 +347,21 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
     param->getFloat( "trace_clip", &valueFloat );
     if( valueFloat == 0.0 ) {
       valueFloat = 1.0;
-      fprintf(fp,"doTraceClipping:false\n" );
+      fprintf(foutProp,"doTraceClipping:false\n" );
     }
     else {
-      fprintf(fp,"doTraceClipping:true\n" );
+      fprintf(foutProp,"doTraceClipping:true\n" );
     }
-    fprintf(fp,"traceClip:%f\n", valueFloat );
+    fprintf(foutProp,"traceClip:%f\n", valueFloat );
     
   }
   if( param->exists("polarity")  ) {
     param->getString( "polarity", &text );
     if( !text.compare("normal") ) {
-      fprintf(fp,"polarity:1.0\n");
+      fprintf(foutProp,"polarity:1.0\n");
     }
     else if( !text.compare("reverse") ) {
-      fprintf(fp,"polarity:-1.0\n");
+      fprintf(foutProp,"polarity:-1.0\n");
     }
     else {
       log->error("Unknown option: %s", text.c_str());
@@ -373,13 +372,13 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
     param->getString( "scale_type", &text );
     //    fprintf(":\n", value);
     if( !text.compare("scalar") ) {
-      fprintf(fp,"scaleType:%d\n", SCALE_TYPE_SCALAR);
+      fprintf(foutProp,"scaleType:%d\n", SCALE_TYPE_SCALAR);
     }
     else if( !text.compare("range") ) {
-      fprintf(fp,"scaleType:%d\n", SCALE_TYPE_RANGE);
+      fprintf(foutProp,"scaleType:%d\n", SCALE_TYPE_RANGE);
     }
     else if( !text.compare("full_trace") ) {
-      fprintf(fp,"scaleType:%d\n", SCALE_TYPE_TRACE);
+      fprintf(foutProp,"scaleType:%d\n", SCALE_TYPE_TRACE);
     }
     else {
       log->error("Unknown option: %s", text.c_str());
@@ -388,15 +387,15 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   if( param->exists("wiggle")  ) {
     param->getString( "wiggle", &text );
     if( !text.compare("none") ) {
-      fprintf(fp,"showWiggle:false\n");
+      fprintf(foutProp,"showWiggle:false\n");
     }
     else {
-      fprintf(fp,"showWiggle:true\n");
+      fprintf(foutProp,"showWiggle:true\n");
       if( !text.compare("linear") ) {
-        fprintf(fp,"wiggleType:%d\n", WIGGLE_TYPE_LINEAR);
+        fprintf(foutProp,"wiggleType:%d\n", WIGGLE_TYPE_LINEAR);
       }
       else if( !text.compare("cubic") ) {
-        fprintf(fp,"wiggleType:%d\n", WIGGLE_TYPE_CUBIC);
+        fprintf(foutProp,"wiggleType:%d\n", WIGGLE_TYPE_CUBIC);
       }
       else {
         log->error("Unknown option: %s", text.c_str());
@@ -406,19 +405,19 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   if( param->exists("vi_type")  ) {
     param->getString( "vi_type", &text );
     if( !text.compare("none") ) {
-      fprintf(fp,"isVIDisplay:false\n");
-      fprintf(fp,"viType:%d\n", VA_TYPE_DISCRETE);
+      fprintf(foutProp,"isVIDisplay:false\n");
+      fprintf(foutProp,"viType:%d\n", VA_TYPE_DISCRETE);
     }
     else {
-      fprintf(fp,"isVIDisplay:true\n");
+      fprintf(foutProp,"isVIDisplay:true\n");
       if( !text.compare("discrete") ) {
-        fprintf(fp,"viType:%d\n", VA_TYPE_DISCRETE);
+        fprintf(foutProp,"viType:%d\n", VA_TYPE_DISCRETE);
       }
       else if( !text.compare("vertical") ) {
-        fprintf(fp,"viType:%d\n", VA_TYPE_VERTICAL);
+        fprintf(foutProp,"viType:%d\n", VA_TYPE_VERTICAL);
       }
       else if( !text.compare("spline") ) {
-        fprintf(fp,"viType:%d\n", VA_TYPE_2DSPLINE);
+        fprintf(foutProp,"viType:%d\n", VA_TYPE_2DSPLINE);
       }
       else {
         log->error("Unknown option: %s", text.c_str());
@@ -428,10 +427,10 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   if( param->exists("show_zero_lines")  ) {
     param->getString( "show_zero_lines", &text );
     if( !text.compare("yes") ) {
-      fprintf(fp,"showZeroLines:true\n");
+      fprintf(foutProp,"showZeroLines:true\n");
     }
     else if( !text.compare("no") ) {
-      fprintf(fp,"showZeroLines:false\n");
+      fprintf(foutProp,"showZeroLines:false\n");
     }
     else {
       log->error("Unknown option: %s", text.c_str());
@@ -440,10 +439,10 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   if( param->exists("show_time_lines")  ) {
     param->getString( "show_time_lines", &text );
     if( !text.compare("yes") ) {
-      fprintf(fp,"showTimeLines:true\n");
+      fprintf(foutProp,"showTimeLines:true\n");
     }
     else if( !text.compare("no") ) {
-      fprintf(fp,"showTimeLines:false\n");
+      fprintf(foutProp,"showTimeLines:false\n");
     }
     else {
       log->error("Unknown option: %s", text.c_str());
@@ -452,10 +451,10 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   if( param->exists("pos_fill")  ) {
     param->getString( "pos_fill", &text );
     if( !text.compare("yes") ) {
-      fprintf(fp,"isPosFill:true\n");
+      fprintf(foutProp,"isPosFill:true\n");
     }
     else if( !text.compare("no") ) {
-      fprintf(fp,"isPosFill:false\n");
+      fprintf(foutProp,"isPosFill:false\n");
     }
     else {
       log->error("Unknown option: %s", text.c_str());
@@ -464,10 +463,10 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   if( param->exists("neg_fill")  ) {
     param->getString( "neg_fill", &text );
     if( !text.compare("yes") ) {
-      fprintf(fp,"isNegFill:true\n");
+      fprintf(foutProp,"isNegFill:true\n");
     }
     else if( !text.compare("no") ) {
-      fprintf(fp,"isNegFill:false\n");
+      fprintf(foutProp,"isNegFill:false\n");
     }
     else {
       log->error("Unknown option: %s", text.c_str());
@@ -476,10 +475,10 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   if( param->exists("log_scale")  ) {
     param->getString( "log_scale", &text );
     if( !text.compare("yes") ) {
-      fprintf(fp,"isLogScale:true\n");
+      fprintf(foutProp,"isLogScale:true\n");
     }
     else if( !text.compare("no") ) {
-      fprintf(fp,"isLogScale:false\n");
+      fprintf(foutProp,"isLogScale:false\n");
     }
     else {
       log->error("Unknown option: %s", text.c_str());
@@ -488,10 +487,10 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   if( param->exists("var_color")  ) {
     param->getString( "var_color", &text );
     if( !text.compare("yes") ) {
-      fprintf(fp,"isVariableColor:true\n");
+      fprintf(foutProp,"isVariableColor:true\n");
     }
     else if( !text.compare("no") ) {
-      fprintf(fp,"isVariableColor:false\n");
+      fprintf(foutProp,"isVariableColor:false\n");
     }
     else {
       log->error("Unknown option: %s", text.c_str());
@@ -500,10 +499,10 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   if( param->exists("plot_direction")  ) {
     param->getString( "plot_direction", &text );
     if( !text.compare("vertical") ) {
-      fprintf(fp,"plotDirection:%d\n", PLOT_DIR_VERTICAL);
+      fprintf(foutProp,"plotDirection:%d\n", PLOT_DIR_VERTICAL);
     }
     else if( !text.compare("horizontal") ) {
-      fprintf(fp,"plotDirection:%d\n", PLOT_DIR_HORIZONTAL);
+      fprintf(foutProp,"plotDirection:%d\n", PLOT_DIR_HORIZONTAL);
     }
     else {
       log->error("Unknown option: %s", text.c_str());
@@ -511,14 +510,32 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   }
   if( param->exists("vi_color_map")  ) {
     param->getString( "vi_color_map", &text );
-    fprintf(fp,"viColorMap:%s\n", text.c_str());
+    fprintf(foutProp,"viColorMap:%s\n", text.c_str());
   }
   if( param->exists("wiggle_color_map")  ) {
     param->getString( "wiggle_color_map", &text );
-    fprintf(fp,"wiggleColorMap:%s\n", text.c_str());
+    fprintf(foutProp,"wiggleColorMap:%s\n", text.c_str());
+  }
+  if( param->exists("custom_vi_color_map")  ) {
+    if( param->exists("vi_color_map")  ) {
+      log->warning("Specify either parameter vi_color_map OR custom_vi_color_map, not both. custom_vi_color_map will be ignored");
+    }
+    else {
+      param->getString( "custom_vi_color_map", &text );
+      fprintf(foutProp,"viColorMap:%s\n", text.c_str());
+    }
+  }
+  if( param->exists("custom_wiggle_color_map")  ) {
+    if( param->exists("wiggle_color_map")  ) {
+      log->warning("Specify either parameter wiggle_color_map OR custom_wiggle_color_map, not both. custom_wiggle_color_map will be ignored");
+    }
+    else {
+      param->getString( "wiggle_color_map", &text );
+      fprintf(foutProp,"wiggleColorMap:%s\n", text.c_str());
+    }
   }
 
-  fclose(fp);
+  fclose(foutProp);
 
 #if PLATFORM_WINDOWS
   vars->command.append( "\"" );  // Add double quotation marks around plotimage command line arguments
@@ -584,7 +601,18 @@ bool exec_mod_image_(
 
     delete vars; vars = NULL;
     return true;
+  } // END isCleanup
+
+  if( vars->isFirstCall ) {
+    vars->isFirstCall = false;
+    try {
+      vars->writer = new csSeismicWriter( vars->seismicFilename, 20 );
+    }
+    catch( csException& exc ) {
+      log->error("Error occurred when opening SeaSeis file. System message:\n%s", exc.getMessage() );
+    }
   }
+
 
   if( vars->isTmpFile ) {
     float* samples = trace->getTraceSamples();
@@ -794,6 +822,12 @@ void params_mod_image_( csParamDef* pdef ) {
   pdef->addOption( "brown", "Brown" );
   pdef->addOption( "default", "Default color map (good for interpretation)" );
 
+  pdef->addParam( "custom_wiggle_color_map", "Custom colour map for variable colour wiggle fill", NUM_VALUES_FIXED );
+  pdef->addValue( "", VALTYPE_STRING, "Exact name of custom color map." );
+
+  pdef->addParam( "custom_vi_color_map", "Custom colour map for variable intensity plot", NUM_VALUES_FIXED );
+  pdef->addValue( "", VALTYPE_STRING, "Exact name of custom color map." );
+
   pdef->addParam( "trace_clip", "Number of traces where seismic wiggle is clipped", NUM_VALUES_FIXED,
                   "Set to 0 to avoid any clipping" );
   pdef->addValue( "", VALTYPE_NUMBER, "" );
@@ -810,6 +844,21 @@ void params_mod_image_( csParamDef* pdef ) {
 
   pdef->addParam( "title_vert_axis", "Title text for vertical axis", NUM_VALUES_FIXED, "If not specified, default text will be used" );
   pdef->addValue( "", VALTYPE_STRING );
+
+  /*  pdef->addParam( "override", "Override domain specified in superheader.", NUM_VALUES_VARIABLE );
+  pdef->addValue( "no", VALTYPE_OPTION );
+  pdef->addOption( "no", "Acknowledge domain found in super header" );
+  pdef->addOption( "fx", "Override domain found in super header. Set to FK." );
+  pdef->addOption( "fx", "Override domain found in super header. Set to FX." );
+  pdef->addOption( "xt", "Override domain found in super header. Set to XT (time)." );
+  pdef->addOption( "xd", "Override domain found in super header. Set to XD (depth)." );
+  pdef->addValue( "amp_phase", VALTYPE_OPTION, "Override data type (in case of FX/FK)" );
+  pdef->addOption( "amp_phase", "Set FFT data type to amplitude/phase spectrum" );
+  pdef->addOption( "amp", "Set FFT data type to amplitude spectrum" );
+  pdef->addOption( "psd", "Set FFT data type to psd spectrum" );
+  pdef->addOption( "complex", "Set FFT data type to complex spectrum (only applies to FK)" );
+  pdef->addOption( "real_imag", "Set FFT data type to real/imaginary spectrum" );
+  */
 }
 
 extern "C" void _params_mod_image_( csParamDef* pdef ) {

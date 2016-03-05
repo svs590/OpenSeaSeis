@@ -39,7 +39,7 @@ namespace mod_trc_math_ens {
       myNumEnsCurrent += 1;
       return myNumEnsCurrent;
     }
-    int releaseEns() {
+    int releaseFirstEns() {
       if( myNumEnsCurrent == 0 ) return 0;
       int ntraces = myNumTraces[0];
       for( int i = 1; i < myNumEnsCurrent; i++ ) {

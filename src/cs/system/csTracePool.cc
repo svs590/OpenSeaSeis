@@ -91,7 +91,7 @@ void csTracePool::freeTrace( csTrace* trace ) {
     myIndexNextFreeTrace = iter->second;
   }
   else {
-    throw( cseis_geolib::csException("csTracePool::freeTtrace: Error...") );
+    throw( cseis_geolib::csException("csTracePool::freeTrace: Error...") );
   }
 
 //  if( !isOK ) {
