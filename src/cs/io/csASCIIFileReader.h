@@ -18,18 +18,22 @@ class ASCIIParam {
   ASCIIParam();
   ~ASCIIParam();
   float sample(int index) const;
+  float time(int index) const;
   int numSamples() const;
   float const* getSamples() const;
+  float const* getTimes() const;
   void clear();
 
   float sampleInt;
   float srcDepth;
   double timeFirstSamp;
   double timeLastSamp;
+  int traceNumber;
   friend class csASCIIFileReader;
  private:
   int myNumSamples;
   cseis_geolib::csVector<float>* sampleList;
+  cseis_geolib::csVector<float>* timeList;
 };
 
 class csASCIIFileReader {
@@ -38,6 +42,7 @@ class csASCIIFileReader {
   static int const FORMAT_COLUMNS  = 12;
   static int const FORMAT_ZMAP     = 13;
   static int const FORMAT_NUCLEUS_PLUS = 14;
+  static int const FORMAT_SPIKOGRAM  = 15;
 
   /**
    * @param filename  ASCII file name.
@@ -50,6 +55,7 @@ class csASCIIFileReader {
    * @param param  Contains all extracted data.
    */
   bool readNextTrace( ASCIIParam* param );
+  bool initialize( ASCIIParam* param, int colIndexTime, int colIndexValue, int colIndexTrace );
   bool initialize( ASCIIParam* param );
   bool initializeZMap( ASCIIParam* param,
                        int& zmap_numTraces,
@@ -64,7 +70,10 @@ class csASCIIFileReader {
   bool readOneTraceColumnFormat( cseis_geolib::csVector<double>* timeList,
                                  cseis_geolib::csVector<float>* sampleList,
                                  int maxSamplesToRead,
-                                 int traceIndexToRead );
+                                 int* newTraceNumber,
+                                 bool bailOut = true );
+  bool readOneTraceSpikogramFormat( cseis_geolib::csVector<float>* timeList,
+                                    cseis_geolib::csVector<float>* sampleList );
 
   FILE* myFileASCII;
   int myFormat;
@@ -74,6 +83,15 @@ class csASCIIFileReader {
   int myCurrentTraceIndex;
   bool myIsAtEOF;
   int myNumSamples;
+  int myNumMinColumns;
+  int myColIndexTime;
+  int myColIndexValue;
+  int myColIndexTrace;
+
+  bool myIsOneSampleWaiting;
+  float mySampleValueWaiting;
+  float myTimeValueWaiting;
+  int myTraceIndexWaiting;
 
   double myZMap_noValue;
 };

@@ -38,12 +38,26 @@ void csExecPhaseDef::setExecType( int theExecType ) {
   myExecType = theExecType;
 }
 void csExecPhaseDef::setTracesAreWaiting() {
-  myTracesAreWaiting = true;
+  setTracesAreWaiting( true );
+}
+void csExecPhaseDef::setTracesAreWaiting( bool areWaiting ) {
+  myTracesAreWaiting = areWaiting;
 }
 bool csExecPhaseDef::tracesAreWaiting() const {
   return myTracesAreWaiting;
 }
+void csExecPhaseDef::setTraceMode( int traceMode_in ) {
+  traceMode = traceMode_in;
+}
+void csExecPhaseDef::setLastCall( bool isLastCall ) {
+  myIsLastCall = isLastCall;
+}
 bool csExecPhaseDef::isLastCall() const {
   return myIsLastCall;
 }
-
+int csExecPhaseDef::getTraceMode() const {
+  return traceMode;
+}
+void csExecPhaseDef::setCleanUp( bool isCleanUp ) {
+  myIsCleanup = isCleanUp;
+}

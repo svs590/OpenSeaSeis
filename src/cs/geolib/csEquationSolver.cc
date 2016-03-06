@@ -114,7 +114,6 @@ bool csEquationSolver::prepare( std::string const& equation, std::string const* 
   }
   return true;
 }
-
 //------------------------------------------------------------
 //
 csMathFunction const* csEquationSolver::getMathFunction( std::string functionName ) {

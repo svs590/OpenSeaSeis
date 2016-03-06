@@ -119,25 +119,8 @@ void csSuperHeader::dump( FILE* fout ) const {
   fprintf( fout, "Sample interval:        %f %s\n", sampleInt, cseis_geolib::csGeolibUtils::domain2UnitText( domain ) );
   fprintf( fout, "Number of samples:      %d\n", numSamples );
   fprintf( fout, "Domain code:            %d (= %s domain)\n", domain, cseis_geolib::csGeolibUtils::domain2Text( domain ) );
-  if( domain == cseis_geolib::DOMAIN_FX ) {
-    std::string text = "Unknown";
-    if( fftDataType == cseis_geolib::FX_AMP ) {
-      text = "Amplitude spectrum";
-    }
-    else if( fftDataType == cseis_geolib::FX_AMP_PHASE ) {
-      text = "Amplitude & phase spectrum";
-    }
-    else if( fftDataType == cseis_geolib::FX_AMP_PHASE ) {
-      text = "Amplitude & phase spectrum";
-    }
-    else if( fftDataType == cseis_geolib::FX_PSD ) {
-      text = "Power spectrum";
-    }
-    else if( fftDataType == cseis_geolib::FX_REAL_IMAG ) {
-      text = "Real & imaginary spectrum";
-    }
-    fprintf(fout,"FFT data type:           %d (= %s)\n", fftDataType, text.c_str());
-  }
+  fprintf( fout, "FFT data type:          %d (= %s)\n", fftDataType, cseis_geolib::csGeolibUtils::fftDataType2Text( fftDataType ) );
+  fprintf( fout, "   FFT parameters (if applicable): XT Number of samples/sampleInt: %d / %f\n", numSamplesXT, sampleIntXT );
   fprintf( fout, "# ensemble keys:        %d\n", myNumEnsKeys );
   for( int ikey = 0; ikey < myNumEnsKeys; ikey++ ) {
     fprintf( fout, "  Key #%d:  '%s'\n", ikey+1, myEnsKeyInfo[ikey].name.c_str() );

@@ -211,7 +211,7 @@ float const* csGeneralSeismicReader::readTraceReturnPointer() {
     myTraceBuffer = new float[myConfig->numSamples];
   }
   if( myIOSelection ) {
-    if( !performIOSelection() ) return false;
+    if( !performIOSelection() ) return NULL;
   }
   bool success = readTrace( myTraceBuffer );
   if( success ) {

@@ -63,7 +63,7 @@ void init_mod_stack_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   vars->hdrValueList    = NULL;
   vars->hdrId_stack     = -1;
   vars->hdrId_fold      = -1;
-  vars->normFactor      = 0;
+  vars->normFactor      = 1;
   vars->isFirstCall     = true;
 
   std::string text;
@@ -115,9 +115,6 @@ void init_mod_stack_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
     vars->numStackedTracesList = new csVector<int>();
   }
 
-  if( param->exists("norm") ) {
-    param->getFloat("norm", &vars->normFactor);
-  }
   bool normTimeVariant = false;
   bool outputNormTrace = false;
   if( param->exists("norm_time_variant") ) {
@@ -143,6 +140,10 @@ void init_mod_stack_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
         log->line("Unknown option: '%s'", text.c_str());
       }
     }
+  }
+
+  if( param->exists("norm") ) {
+    param->getFloat("norm", &vars->normFactor);
   }
   if( !hdef->headerExists( HDR_FOLD.name ) ) {
     hdef->addStandardHeader( HDR_FOLD.name );
@@ -290,11 +291,11 @@ void exec_mod_stack_(
     // This is the very first trace. --> Save trace in stacked trace buffer
     if( vars->stackedTraces->numTraces() == 0 ) {
       traceGather->moveTraceTo( 0, vars->stackedTraces );
+      vars->stackUtil->stackTrace( vars->stackedTraces->trace(0) );  // Bug fix 150528: Stack in new trace only once (was done twice)
       vars->numStackedTracesList->insertEnd( 1 );
       if( vars->mode != MODE_ALL ) {
         vars->hdrValueList->insertEnd( hdrValueIn );
       }
-      //      log->line("First call...");
     }
     // Input data is sorted --> if new stack ensemble is found, output current stack buffer first, otherwise just stack into buffer
     else if( vars->mode == MODE_SORTED ) {
@@ -313,6 +314,8 @@ void exec_mod_stack_(
         traceGather->moveTraceTo( 0, vars->stackedTraces );  // Move input trace (traceGather traceIndex '0') to buffer
         vars->hdrValueList->set( hdrValueIn, 0 );
         vars->numStackedTracesList->set( 1, 0 );
+        // Stack in new trace:
+        vars->stackUtil->stackTrace( vars->stackedTraces->trace(0) );  // Bug fix 150528: Stack in new trace only once (was done twice)
       }
     }
     //----------------------------------------------------------------------------
@@ -386,7 +389,7 @@ void params_mod_stack_( csParamDef* pdef ) {
   pdef->addValue( "", VALTYPE_STRING, "Trace 'stack' header name. Stack all traces with same stack header value." );
 
   pdef->addParam( "norm", "Normalisation factor", NUM_VALUES_FIXED );
-  pdef->addValue( "0", VALTYPE_NUMBER, "Output stack value is normalised by number of stacked traces to the power of the 'norm' factor.", "Specify 0.5 for sqrt(N) normalization, 0 for no normalization" );
+  pdef->addValue( "1", VALTYPE_NUMBER, "Output stack value is normalised by number of stacked traces to the power of the 'norm' factor.", "Specify 0.5 for sqrt(N) normalization, 0 for no normalization" );
 
   pdef->addParam( "norm_time_variant", "Time variant normalisation?", NUM_VALUES_VARIABLE );
   pdef->addValue( "no", VALTYPE_OPTION );

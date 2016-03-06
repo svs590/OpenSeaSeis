@@ -2,6 +2,7 @@
 /* All rights reserved.                       */
 
 #include "cseis_includes.h"
+#include "csFileUtils.h"
 #include <cmath>
 
 using namespace cseis_system;
@@ -20,7 +21,7 @@ namespace mod_hdr_print {
   struct VariableStruct {
     bool dumpAll;
     bool dumpShdr;
-    char* filename;
+    std::string filename;
     int* indexHdr;
     type_t* typeHdr;
     std::string* hdrNames;
@@ -32,6 +33,7 @@ namespace mod_hdr_print {
     bool isExternalFile;
     FILE* f_out;
     bool auto_format;
+    bool isFirstCall;
   };
 }
 using mod_hdr_print::VariableStruct;
@@ -75,8 +77,9 @@ void init_mod_hdr_print_( csParamManager* param, csInitPhaseEnv* env, csLogWrite
   vars->hdrNames = NULL;
   vars->printFormats = NULL;
   vars->titleFormats = NULL;
-  vars->filename = NULL;
+  vars->filename = "";
   vars->f_out    = NULL;
+  vars->isFirstCall = true;
 
   //---------------------------------------------------------
   //
@@ -136,6 +139,7 @@ void init_mod_hdr_print_( csParamManager* param, csInitPhaseEnv* env, csLogWrite
     int nLines = param->getNumLines( "header" );
     if( nLines > 1 ) {
       log->line( "More than one line encountered for user parameter '%s'. Only one line is supported.", "header" );
+      //      throw( csException("More than one line encountered for user parameter '%s'. Only one line is supported.", "header" ) ); // TEMP
       env->addError();
     }
 
@@ -165,6 +169,7 @@ void init_mod_hdr_print_( csParamManager* param, csInitPhaseEnv* env, csLogWrite
     }
     else {
       log->line("Unknown trace header: %s", name.c_str());
+      //      throw( csException("Unknown trace header: %s", name.c_str()) ); // TEMP
       env->addError();
     }
   }
@@ -386,12 +391,10 @@ void init_mod_hdr_print_( csParamManager* param, csInitPhaseEnv* env, csLogWrite
   }
   log->write("'\n\n");
 
-  std::string filename;
   if( param->exists( "filename" ) ) {
-    param->getString( "filename", &filename );
-    if( (vars->f_out = fopen( filename.c_str(), "w" )) == (FILE*) NULL ) {
-      vars->f_out = NULL;
-      log->error("Could not open file: '%s'", filename.c_str());
+    param->getString( "filename", &vars->filename );
+    if( !csFileUtils::createDoNotOverwrite( vars->filename ) ) {
+      log->error("Unable to open output file %s. Wrong path name..?", vars->filename.c_str() );
     }
     vars->isExternalFile = true;
   }
@@ -426,11 +429,19 @@ bool exec_mod_hdr_print_(
     if( vars->hdrNames ) delete [] vars->hdrNames; vars->hdrNames = NULL;
     if( vars->printFormats ) delete [] vars->printFormats; vars->printFormats = NULL;
     if( vars->titleFormats ) delete [] vars->titleFormats; vars->titleFormats = NULL;
-    if( vars->filename ) delete [] vars->filename; vars->filename = NULL;
     delete vars; vars = NULL;
     return true;
   }
 //----------------------------
+  if( vars->isFirstCall ) {
+    vars->isFirstCall = false;
+    if( vars->isExternalFile ) {
+      if( (vars->f_out = fopen( vars->filename.c_str(), "w" )) == (FILE*) NULL ) {
+        log->error("Could not open file: '%s'", vars->filename.c_str());
+      }
+    }
+  }
+
 
   csTraceHeader* trcHdr = trace->getTraceHeader();
 
@@ -474,7 +485,8 @@ bool exec_mod_hdr_print_(
       fprintf( vars->f_out, vars->printFormats[i].c_str(), trcHdr->stringValue(index).c_str() );
     }
     else {
-      log->error("Encountered unknown trace header type, code: %d", type);
+      fprintf(stderr,"Unknown trace header: %d\n", type);
+      //log->error("Encountered unknown trace header type, code: %d", type);
     }
     fprintf( vars->f_out, " " );
   }

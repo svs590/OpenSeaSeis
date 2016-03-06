@@ -6,6 +6,7 @@
 
 namespace cseis_geolib {
 
+#include <cstdlib>
 
 /**
  * Sort class

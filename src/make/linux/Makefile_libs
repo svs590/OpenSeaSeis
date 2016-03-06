@@ -75,7 +75,9 @@ OBJ_IO = $(OBJDIR)/csSeismicWriter_ver.o \
 			$(OBJDIR)/csSeismicReader_ver01.o \
 			$(OBJDIR)/csSeismicReader_ver02.o \
 			$(OBJDIR)/csSeismicReader_ver03.o \
+			$(OBJDIR)/csSeismicReader_ver04.o \
 			$(OBJDIR)/csASCIIFileReader.o \
+			$(OBJDIR)/csP190Reader.o \
 			$(OBJDIR)/csRSFHeader.o \
 			$(OBJDIR)/csRSFReader.o \
 			$(OBJDIR)/csRSFWriter.o
@@ -335,8 +337,14 @@ $(OBJDIR)/csSeismicReader_ver02.o: src/cs/io/csSeismicReader_ver02.cc   src/cs/i
 $(OBJDIR)/csSeismicReader_ver03.o: src/cs/io/csSeismicReader_ver03.cc   src/cs/io/csSeismicReader_ver03.h
 	$(CPP) -c src/cs/io/csSeismicReader_ver03.cc -o $(OBJDIR)/csSeismicReader_ver03.o $(CXXFLAGS_SYSTEM)
 
+$(OBJDIR)/csSeismicReader_ver04.o: src/cs/io/csSeismicReader_ver04.cc   src/cs/io/csSeismicReader_ver04.h
+	$(CPP) -c src/cs/io/csSeismicReader_ver04.cc -o $(OBJDIR)/csSeismicReader_ver04.o $(CXXFLAGS_SYSTEM)
+
 $(OBJDIR)/csASCIIFileReader.o: src/cs/io/csASCIIFileReader.cc   src/cs/io/csASCIIFileReader.h
 	$(CPP) -c src/cs/io/csASCIIFileReader.cc -o $(OBJDIR)/csASCIIFileReader.o $(CXXFLAGS_SYSTEM)
+
+$(OBJDIR)/csP190Reader.o: src/cs/io/csP190Reader.cc   src/cs/io/csP190Reader.h
+	$(CPP) -c src/cs/io/csP190Reader.cc -o $(OBJDIR)/csP190Reader.o $(CXXFLAGS_SYSTEM)
 
 $(OBJDIR)/csRSFHeader.o: src/cs/io/csRSFHeader.cc   src/cs/io/csRSFHeader.h
 	$(CPP) -c src/cs/io/csRSFHeader.cc -o $(OBJDIR)/csRSFHeader.o $(CXXFLAGS_SYSTEM)

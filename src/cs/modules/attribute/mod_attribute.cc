@@ -164,11 +164,11 @@ void init_mod_attribute_( csParamManager* param, csInitPhaseEnv* env, csLogWrite
 
   //---------------------------------------------------------
 
-  if( param->exists("width_win") ) {
+  if( param->exists("window") ) {
     double start;
     double end;
-    param->getDouble( "width_win", &start, 0 );
-    param->getDouble( "width_win", &end, 1 );
+    param->getDouble( "window", &start, 0 );
+    param->getDouble( "window", &end, 1 );
     vars->startSample = (int)( start / shdr->sampleInt + 0.5 );
     vars->endSample   = (int)( end / shdr->sampleInt + 0.5 );
 
@@ -379,9 +379,9 @@ void params_mod_attribute_( csParamDef* pdef ) {
   pdef->addOption( "zruns", "Count how many adjacent samples have the same sample value." );
   pdef->addOption( "horizon", "Extract amplitude at horizon time.", "Specify input horizon in user parameter 'table'" );
 
-  pdef->addParam( "width_win", "Width of computation window", NUM_VALUES_FIXED, "Width in units of trace, e.g. [ms] or [Hz]" );
-  pdef->addValue( "0.5", VALTYPE_NUMBER, "Width of computation window." );
-  pdef->addValue( "2.0", VALTYPE_NUMBER, "Width of computation window." );
+  pdef->addParam( "window", "Computation window", NUM_VALUES_FIXED );
+  pdef->addValue( "", VALTYPE_NUMBER, "Start time/frequency [ms] or [Hz]" );
+  pdef->addValue( "", VALTYPE_NUMBER, "End time/frequency [ms] or [Hz]" );
 
   pdef->addParam( "rms", "Definition of RMS window", NUM_VALUES_FIXED, "...in units of trace, e.g. [ms] or [Hz]" );
   pdef->addValue( "", VALTYPE_NUMBER, "Width of RMS window." );

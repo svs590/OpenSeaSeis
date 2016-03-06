@@ -48,7 +48,7 @@ void exec_mod_fft_2d_(
 // Parameter definition
 //*************************************************************************************************
 void params_mod_fft_2d_( csParamDef* pdef ) {
-  pdef->setModule( "FFT_2D", "2D FFT - DUMMY MODULE (obsolete)");
+  pdef->setModule( "FFT_2D", "2D FFT - DUMMY MODULE");
   pdef->setVersion(0,5);
 }
 

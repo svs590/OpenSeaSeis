@@ -4,6 +4,7 @@
 #include "cseis_includes.h"
 #include "csRSFWriter.h"
 #include "csRSFHeader.h"
+#include "csFileUtils.h"
 #include <cstring>
 #include <cmath>
 
@@ -23,6 +24,7 @@ namespace mod_output_rsf {
     std::string hdrName_dim3;
     int hdrId_dim2;
     int hdrId_dim3;
+    bool isFirstCall;
   };
 }
 using namespace mod_output_rsf;
@@ -48,14 +50,15 @@ void init_mod_output_rsf_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
   vars->nTracesRead  = 0;
   vars->numSamplesOut = shdr->numSamples;
   vars->special = true;
+  vars->isFirstCall = true;
 //--------------------------------------------------
   std::string headerName;
   std::string yesno;
-  std::string filename;
-  int numTracesBuffer;
+  int numTracesBuffer = 20;
+  std::string filename = "";
   //---------------------------------------------------------
   bool outputGrid = false;
-  if( param->exists("outputGrid") ) {
+  if( param->exists("output_grid") ) {
     string text;
     param->getString("output_grid", &text);
     if( !text.compare("yes") ) {
@@ -235,7 +238,7 @@ void init_mod_output_rsf_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
   }
   catch( csException& e ) {
     vars->rsfWriter = NULL;
-    log->error("Error when opening RSF file '%s'.\nSystem message: %s", filename.c_str(), e.getMessage() );
+    log->error("Error when creating RSF writer.\nSystem message: %s", filename.c_str(), e.getMessage() );
   }
 
   //----------------------------------------------------
@@ -243,6 +246,7 @@ void init_mod_output_rsf_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
     vars->rsfWriter->initialize( &rsfHdr );
   }
   catch( csException& e ) {
+    delete vars->rsfWriter;
     vars->rsfWriter = NULL;
     log->error("Error when initializing RSF writer.\nSystem message: %s", e.getMessage() );
   }
@@ -282,6 +286,16 @@ bool exec_mod_output_rsf_(
     return true;
   }
   
+  if( vars->isFirstCall ) {
+    vars->isFirstCall = false;
+    try {
+      vars->rsfWriter->openFile();
+    }
+    catch( csException& e ) {
+      log->error("Error when opening RSF output file.\nSystem message: %s", e.getMessage() );
+    }
+  }
+
   float* samples = trace->getTraceSamples();
   csTraceHeader* trcHdr = trace->getTraceHeader();
 

@@ -19,6 +19,9 @@ using namespace cseis_geolib;
 csFFTDesignature::csFFTDesignature( int numSamples, float sampleInt, float const* input_wavelet, float timeZero_s, float percWhiteNoise, float const* output_wavelet ) :
   csFFTTools( numSamples, sampleInt )
 {
+  //  myNotchIndexFirstRed = 0;
+  //  myNotchIndexLastRed  = 0;
+  //  myIsNotchSuppression = false;
   myDesigAmpFilter  = NULL;
   myDesigPhaseShift = NULL;
   myAmpSpecIn   = NULL;
@@ -150,6 +153,14 @@ bool csFFTDesignature::applyFilter( float* samples, int numSamples ) {
     }
   }
 
+  /*  if( myIsNotchSuppression ) {
+    for( int isamp = myNotchIndexFirstRed; isamp <= myNotchIndexLastRed; isamp++ ) {
+      double phase  = 2.0*( ( (double)(isamp-myNotchIndexFirst) / (double)myNotchWidth ) - 1.0 ) * M_PI;
+      double scalar = 0.5 * (cos(phase) + 1.0);
+      myAmpSpecIn[isamp] *= scalar;
+    }
+    } */
+
   // Transform back to X-T. Do not perform normalisation in fft (not sure how when normalisation is required..?)
   success = fft_inverse( myAmpSpecIn, myPhaseSpecIn, false );
   for( int i = 0; i < numSamples; i++ ) {
@@ -163,7 +174,7 @@ void csFFTDesignature::setDesigFilterType( int filterType ) {
   myFilterType = filterType;
 }
 
-void csFFTDesignature::setDesigLowPass( float cutOffHz, int order ) {
+void csFFTDesignature::setDesigLowPass( float cutOffHz, float order ) {
   double G0 = 1.0;
   double power = order * 2.0;
   double df = 1.0 / ( (double)myNumFFTSamplesIn*mySampleIntIn/1000.0 );
@@ -175,7 +186,7 @@ void csFFTDesignature::setDesigLowPass( float cutOffHz, int order ) {
   }
 }
 
-void csFFTDesignature::setDesigHighPass( float cutOffHz, int order ) {
+void csFFTDesignature::setDesigHighPass( float cutOffHz, float order ) {
   double G0 = 1.0;
   double power = order * 2.0;
   double df = 1.0 / ( (double)myNumFFTSamplesIn*mySampleIntIn/1000.0 );
@@ -190,6 +201,19 @@ void csFFTDesignature::setDesigHighPass( float cutOffHz, int order ) {
   }
 }
 
+void csFFTDesignature::setDesigHighEnd( float freq ) {
+  double df = 1.0 / ( (double)myNumFFTSamplesIn*mySampleIntIn/1000.0 );
+  int index = (int)round( freq / df );
+  if( index <= 0 || index > myNumFFTSamplesIn/2 ) return;
+  float amplitude = myDesigAmpFilter[index];
+  float phase     = myDesigPhaseShift[index];
+
+  for( int is = index+1; is <= myNumFFTSamplesIn/2; is++ ) {
+    myDesigAmpFilter[is]  = amplitude;
+    myDesigPhaseShift[is] = phase;
+  }
+}
+
 // Apply cosine taper around notch frequency
 void csFFTDesignature::setNotchSuppression( float notchFreq, float notchWidth ) {
   double df = 1.0 / ( (double)myNumFFTSamplesIn*mySampleIntIn/1000.0 );
@@ -199,21 +223,23 @@ void csFFTDesignature::setNotchSuppression( float notchFreq, float notchWidth ) 
 
   int indexFirstRed = std::max(0,indexFirst);
   int indexLastRed  = std::min(myNumFFTSamplesIn,indexLast);
-
+  /*
+  myIsNotchSuppression = true;
+  myNotchIndexFirst    = indexFirst;
+  myNotchWidth = width;
+  myNotchIndexFirstRed = indexFirstRed;
+  myNotchIndexLastRed  = indexLastRed;
+  */
   for( int isamp = indexFirstRed; isamp <= indexLastRed; isamp++ ) {
     double phase = 2.0*( ( (double)(isamp-indexFirst) / (double)width ) - 1.0 ) * M_PI;
     double scalar   = 0.5 * (cos(phase) + 1.0);
     myDesigAmpFilter[isamp] = myDesigAmpFilter[isamp] * scalar;
-    // double freq = (double)isamp * df;
-    // double constant = 0.5 * (cos(phase-M_PI) + 1.0);
-    //    fprintf(stdout,"%d %f %f %f\n", isamp, freq, scalar, constant );
-    //    myDesigAmpFilter[isamp] = myDesigAmpFilter[isamp] * scalar + constant;
   }
 }
 
 //--------------------------------------------------------------------------------
 
-void csFFTDesignature::dump( FILE* stream ) const {
+void csFFTDesignature::dump_spectrum( FILE* stream ) const {
   float df = 1000.0 / ( (float)myNumFFTSamplesIn*mySampleIntIn );
   for( int i = 0; i <= myNumFFTSamplesIn/2; i++ ) {
     float freq = df * (float)(i);
@@ -221,7 +247,7 @@ void csFFTDesignature::dump( FILE* stream ) const {
   }
 }
 
-void csFFTDesignature::dump_wavelet( FILE* stream ) {
+void csFFTDesignature::dump_wavelet( FILE* stream, bool doNormalize ) {
   float* desigAmpFilter   = new float[myNumFFTSamplesIn/2+1];
   float* desigPhaseShift = new float[myNumFFTSamplesIn/2+1];
 
@@ -233,14 +259,15 @@ void csFFTDesignature::dump_wavelet( FILE* stream ) {
     desigAmpFilter[i]  = myDesigAmpFilter[i];
     desigPhaseShift[i] = myDesigPhaseShift[i] + phaseShift;
   }
-  //void csFFTTools::convertFromAmpPhase( float const* ampSpec, float const* phaseSpec ) {
   convertFromAmpPhase( desigAmpFilter, desigPhaseShift );
-  //  bool success = 
+  // bool success = 
   fft( csFFTTools::INVERSE, myTwoPowerIn, myBufferReal, myBufferImag, false );
   double const* real = realData();
+  float normScalar = 1.0f;
+  if( doNormalize ) normScalar = 1.0f / (float)(myNumFFTSamplesIn/2);
   for( int i = 0; i <= myNumFFTSamplesIn/2; i++ ) {
     float time = mySampleIntIn * (float)i;
-    fprintf(stream,"%.6f  %.10e\n", time, real[i]  );
+    fprintf(stream,"%.6f  %.10e\n", time, normScalar*real[i]  );
   }
   delete [] desigAmpFilter;
   delete [] desigPhaseShift;

@@ -6,6 +6,7 @@
 #include "csFFTTools.h"
 #include "csFFTDesignature.h"
 #include "csASCIIFileReader.h"
+#include "csFileUtils.h"
 #include <cmath>
 
 using namespace cseis_system;
@@ -23,6 +24,8 @@ namespace mod_designature {
   struct VariableStruct {
     csFFTDesignature* fftDesig;
     int asciiFormat;
+    std::string filenameOut;
+    bool isFileOutWavelet;
   };
   static int const UNIT_MS = 3;
   static int const UNIT_S  = 4;
@@ -46,6 +49,8 @@ void init_mod_designature_( csParamManager* param, csInitPhaseEnv* env, csLogWri
 
   vars->asciiFormat     = -1;
   vars->fftDesig        = NULL;
+  vars->filenameOut     = "";
+  vars->isFileOutWavelet = false;
 
 //---------------------------------------------
 //
@@ -91,6 +96,24 @@ void init_mod_designature_( csParamManager* param, csInitPhaseEnv* env, csLogWri
     log->error("Unknown option: %s", text.c_str() );
   }
 
+  int colIndexTime  = 0;
+  int colIndexValue = 1;
+  int colIndexTrace = -1;
+  if( vars->asciiFormat == cseis_io::csASCIIFileReader::FORMAT_COLUMNS ) {
+    if( param->exists("format") && param->getNumValues("format") > 1 ) {
+      param->getInt( "format", &colIndexTime, 1 );
+      colIndexTime  -= 1;
+      if( param->getNumValues("format") > 2 ) {
+        param->getInt( "format", &colIndexValue, 2 );
+        colIndexValue -= 1;
+        if( param->getNumValues("format") > 3 ) {
+          param->getInt( "format", &colIndexTrace, 3 );
+          colIndexTrace -= 1;
+        }
+      }
+    }
+  }
+
   float percWhiteNoise = 0.01f;
   if( param->exists("white_noise") ) {
     param->getFloat("white_noise",&percWhiteNoise);
@@ -102,7 +125,7 @@ void init_mod_designature_( csParamManager* param, csInitPhaseEnv* env, csLogWri
   cseis_io::ASCIIParam asciiParam;
   try {
     cseis_io::csASCIIFileReader asciiFileReader( filename, vars->asciiFormat );
-    bool success = asciiFileReader.initialize( &asciiParam );
+    bool success = asciiFileReader.initialize( &asciiParam, colIndexTime, colIndexValue, colIndexTrace );
     if( !success ) log->error("Unknown error occurred during initialization of signature input file. Incorrect or unsupported format?");
     success = asciiFileReader.readNextTrace( &asciiParam );
     if( !success ) log->error("Unknown error occurred when reading in samples from signature input file. Incorrect or unsupported format?");
@@ -172,7 +195,7 @@ void init_mod_designature_( csParamManager* param, csInitPhaseEnv* env, csLogWri
     cseis_io::ASCIIParam asciiParamOut;
     try {
       cseis_io::csASCIIFileReader asciiFileReader( filenameOut, vars->asciiFormat );
-      bool success = asciiFileReader.initialize( &asciiParamOut );
+      bool success = asciiFileReader.initialize( &asciiParamOut, colIndexTime, colIndexValue, colIndexTrace );
       if( !success ) log->error("Unknown error occurred during initialization of output wavelet file. Incorrect or unsupported format?");
       success = asciiFileReader.readNextTrace( &asciiParamOut );
       if( !success ) log->error("Unknown error occurred when reading in samples from output wavelet file. Incorrect or unsupported format?");
@@ -241,31 +264,42 @@ void init_mod_designature_( csParamManager* param, csInitPhaseEnv* env, csLogWri
   }
 
   float freqNy = 500.0f/asciiParam.sampleInt;
-  int orderDefault = 5;
+  float orderDefault = 5;
   if( param->exists("highpass") ) {
     float cutOff;
-    int order = orderDefault;
+    float order = orderDefault;
     param->getFloat("highpass", &cutOff );
     if( cutOff < 0 || cutOff > freqNy ) {
       log->error("Filter frequency exceeds valid range (0-%fHz): %fHz", freqNy, cutOff );
     }
     if( param->getNumValues("highpass") > 1 ) {
-      param->getInt("highpass", &order, 1 );
+      float slope;
+      param->getFloat("highpass", &slope, 1 );
+      order = fabs(slope) / 6.0;
     }
     vars->fftDesig->setDesigHighPass( cutOff, order );
   }
   if( param->exists("lowpass") ) {
     float cutOff;
-    int order = orderDefault;
+    float order = orderDefault;
     param->getFloat("lowpass", &cutOff );
     if( param->getNumValues("lowpass") > 1 ) {
-      param->getInt("lowpass", &order, 1 );
+      float slope;
+      param->getFloat("lowpass", &slope, 1 );
+      order = fabs(slope) / 6.0;
     }
     if( cutOff < 0 || cutOff > freqNy ) {
       log->error("Filter frequency exceeds valid range (0-%fHz): %fHz", freqNy, cutOff );
     }
     vars->fftDesig->setDesigLowPass( cutOff, order );
   }
+
+  if( param->exists("high_set") ) {
+    float freqHighSet = 0;
+    param->getFloat("high_set", &freqHighSet);
+    vars->fftDesig->setDesigHighEnd( freqHighSet );
+  }
+
 
   //--------------------------------------------------
   if( param->exists("notch_suppression") ) {
@@ -282,31 +316,22 @@ void init_mod_designature_( csParamManager* param, csInitPhaseEnv* env, csLogWri
 
   // Write filter to output file
   if( param->exists("filename_output") ) {
-    param->getString("filename_output", &text);
-    FILE* fout = fopen(text.c_str(), "w");
-    if( fout == NULL ) {
-      log->error("Unable to open filter output file %s. Wrong path name..?", text.c_str() );
+    param->getString("filename_output", &vars->filenameOut);
+    if( !csFileUtils::createDoNotOverwrite( vars->filenameOut ) ) {
+      log->error("Unable to open filter output file %s. Wrong path name..?", vars->filenameOut.c_str() );
     }
-    bool isWavelet = false;
     if( param->getNumValues("filename_output") > 1 ) {
       param->getString("filename_output", &text, 1);
       if( !text.compare("wavelet") ) {
-	isWavelet = true;
+	vars->isFileOutWavelet = true;
       }
       else if( !text.compare("spectrum") ) {
-	isWavelet = false;
+	vars->isFileOutWavelet = false;
       }
       else {
 	log->error("Unknown option: '%s'", text.c_str());
       }
     }
-    if( isWavelet ) {
-      vars->fftDesig->dump_wavelet(fout);
-    }
-    else {
-      vars->fftDesig->dump(fout);
-    }
-    fclose(fout);
   }
 
 
@@ -344,6 +369,18 @@ bool exec_mod_designature_(
     return true;
   }
 
+  if( vars->filenameOut.size() > 0 ) {
+    FILE* fout = fopen(vars->filenameOut.c_str(), "w");
+    if( vars->isFileOutWavelet ) {
+      vars->fftDesig->dump_wavelet(fout,true);
+    }
+    else {
+      vars->fftDesig->dump_spectrum(fout);
+    }
+    fclose(fout);
+    fout = NULL;
+    vars->filenameOut = "";
+  }
   float* samples = trace->getTraceSamples();
   vars->fftDesig->applyFilter( samples, shdr->numSamples );
 
@@ -370,11 +407,14 @@ void params_mod_designature_( csParamDef* pdef ) {
   pdef->addOption( "ms", "Milliseconds" );
   pdef->addOption( "s", "Seconds" );
 
-  pdef->addParam( "format", "Input wavelet ASCII file format", NUM_VALUES_FIXED);
+  pdef->addParam( "format", "Input wavelet ASCII file format", NUM_VALUES_VARIABLE);
   pdef->addValue( "columns", VALTYPE_OPTION );
   pdef->addOption( "signature", "Read in source signature from Nucleus ASCII file" );
   pdef->addOption( "columns", "Simple file format with 2 or 3 columns:  Time[ms]  Amplitude  (Trace number)",
     "Trace number column is optional." );
+  pdef->addValue( "1", VALTYPE_NUMBER, "For 'column' format: Column number specifying time (or other sample unit)" );
+  pdef->addValue( "2", VALTYPE_NUMBER, "For 'column' format: Column number specifying sample value" );
+  pdef->addValue( "-1", VALTYPE_NUMBER, "Optional: Column number specifying trace number. -1: Trace number not applicable" );
 
   pdef->addParam( "output_wavelet", "Name of file containing output wavelet", NUM_VALUES_VARIABLE );
   pdef->addValue( "", VALTYPE_STRING, "File name" );
@@ -408,13 +448,15 @@ void params_mod_designature_( csParamDef* pdef ) {
   pdef->addParam( "lowpass", "Lowpass filter to apply to designature filter before application", NUM_VALUES_VARIABLE );
   pdef->addValue( "", VALTYPE_NUMBER, "Cutoff frequency for low-pass filter [Hz]",
      "The cutoff frequency will be damped by -3db" );
-  pdef->addValue( "5", VALTYPE_NUMBER, "Filter order (1-100)" );
+  pdef->addValue( "30", VALTYPE_NUMBER, "Filter slope (db/oct)" );
 
   pdef->addParam( "highpass", "Highpass filter to apply to designature filter before application", NUM_VALUES_VARIABLE );
   pdef->addValue( "", VALTYPE_NUMBER, "Cutoff frequency for highpass filter [Hz]",
      "The cutoff frequency will be damped by -3db" );
-  pdef->addValue( "5", VALTYPE_NUMBER, "Filter order (1-100)" );
+  pdef->addValue( "30", VALTYPE_NUMBER, "Filter slope (db/oct)" );
 
+  pdef->addParam( "high_set", "Set high-end of filter constant", NUM_VALUES_VARIABLE );
+  pdef->addValue( "", VALTYPE_NUMBER, "Frequency [Hz]", "Above this frequency, keep amplitude and phase constant");
 
   pdef->addParam( "filename_output", "Name of file where designature filter shall be written to", NUM_VALUES_FIXED );
   pdef->addValue( "", VALTYPE_STRING, "File name" );

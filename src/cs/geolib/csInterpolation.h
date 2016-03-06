@@ -44,7 +44,7 @@ class csInterpolation {
    */
   static void linearInterpolation( int numSamplesIn, float const* xin, float const* yin,
                                    int numSamplesOut, float sampleIntOut, float* yout );
-  //  static void linearInterpolation( int numValuesIn, float const* xin, float const* yin, int numValuesOut, float* xout, float* yout );
+
   static void xy2yxInterpolation( float const* arrayIn, float* arrayOut, int numSamples );
   static void xy2yxInterpolation( float const* arrayIn, float* arrayOut, int numSamples, float sampleInt );
   static void xy2yxInterpolation( float const* arrayIn, float* arrayOut, int numSamples, float sampleInt, float valueInvalid );

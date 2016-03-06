@@ -10,6 +10,7 @@
 #include "csTimeStretch.h"
 #include "csSort.h"
 #include "csSortManager.h"
+#include "csFileUtils.h"
 #include <cmath>
 #include <cstring>
 
@@ -99,6 +100,10 @@ namespace mod_ray2d {
     int step_wfronts;
     int f_timeout;
     FILE* file_timeout;
+
+    std::string filename_timeout;
+    std::string filename_intout;
+    bool isFirstCall;
   };
   static int const MODEL_1D        = 1;
   static int const MODEL_2D_SIMPLE = 2;
@@ -202,6 +207,9 @@ void init_mod_ray2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   vars->step_wfronts = 4;
   vars->f_timeout = 0;
   vars->file_timeout = NULL;
+  vars->filename_timeout = "";
+  vars->filename_intout = "";
+  vars->isFirstCall = true;
 
   float EPSILON = 0.00001f;
 
@@ -227,12 +235,9 @@ void init_mod_ray2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
     param->getInt( "dump_wfronts", &vars->step_wfronts, 1 );
   }
   if( param->exists( "dump_times" ) ) {
-    //    param->getInt( "dump_times", &vars->f_timeout );
-    std::string filename;
-    param->getString( "dump_times", &filename );
-    vars->file_timeout = fopen(filename.c_str(),"w");
-    if( vars->file_timeout == NULL ) {
-      log->error("Error opening output file %s\n", filename.c_str() );
+    param->getString( "dump_times", &vars->filename_timeout );
+    if( !csFileUtils::createDoNotOverwrite( vars->filename_timeout ) ) {
+      log->error("Error opening output file %s\n", vars->filename_timeout.c_str() );
     }
   }
 
@@ -778,29 +783,10 @@ void init_mod_ray2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   // Dump model
   //
   if( param->exists("dump_model") ) {
-    int npoints_intout = 50;
-    param->getString("dump_model",&text);
-    FILE* f_intout = fopen(text.c_str(),"w");
-    if( f_intout == NULL ) {
-      log->error("Error occurred when opening model output file '%s'", text.c_str());
+    param->getString("dump_model",&vars->filename_intout);
+    if( !csFileUtils::createDoNotOverwrite( vars->filename_intout ) ) {
+      log->error("Error opening output file %s\n", vars->filename_intout.c_str() );
     }
-    float dx = (vars->x_int(vars->numPointsInt[0]-1,0) - vars->x_int(0,0)) / float(npoints_intout-1);
-
-    for( int kInt = 0; kInt < vars->numInterfaces; kInt++ ) {
-      int j = 0;
-      for( int ip = 0; ip < npoints_intout; ip++ ) {
-        float x_output2 = vars->x_int(0,0) + (float)(ip) * dx;
-        while( x_output2 > vars->x_int(j+1,kInt) ) {
-          j = j + 1;
-          fprintf(f_intout,"%f %f\n", vars->x_int(j,kInt),vars->z_int(j,kInt));
-        }
-        float tmpx = x_output2 - vars->x_int(j,kInt);
-        float zout = ((vars->d_int(j,kInt)*tmpx + vars->c_int(j,kInt))*tmpx + vars->b_int(j,kInt))*tmpx + vars->z_int(j,kInt);
-        fprintf(f_intout,"%f %f\n", x_output2, zout);
-      }
-      fprintf(f_intout,"\n");
-    }
-    fclose(f_intout);
   }
 
   /*  
@@ -853,8 +839,8 @@ void init_mod_ray2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   vars->codeStepPlot = new int[vars->numCodes];
   vars->maxNumCodeSteps = 0;
   for( int icode = 0; icode < vars->numCodes; icode++ ) {
-    vars->numCodeSteps[icode] = param->getNumValues("ray_code",icode);
-    if( vars->numCodeSteps[icode] == 0 ) {
+    vars->numCodeSteps[icode] = param->getNumValues("ray_code",icode) - 1;
+    if( vars->numCodeSteps[icode] <= 0 ) {
       log->line("Error: User parameter 'ray_code' (#%d) specified without value/ray code", icode+1);
       env->addError();
     }
@@ -867,15 +853,24 @@ void init_mod_ray2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
   vars->rayHold.resize(vars->maxNumCodeSteps+1,vars->numCodes);
 
   for( int icode = 0; icode < vars->numCodes; icode++ ) {
-    vars->rayCode(0,icode) = 1;  // Set up/down flag: First ray goes downwards from source
+    param->getStringAtLine( "ray_code", &text, icode, 0 );
+    if( !text.compare("down") ) {
+      vars->rayCode(0,icode) = 1;  // Set up/down flag: First ray goes downwards from source
+    }
+    else if( !text.compare("up") ) {
+      vars->rayCode(0,icode) = -1;  // Set up/down flag: First ray goes upwards from source
+    }
+    else {
+      log->error("Unrecognized option for ray code direction: %s. Specify either 'up' or 'down'", text.c_str());
+    }
     if( vars->gatherType == mod_ray2d::SOURCE_GATHER ) {
       for( int istep = 0; istep < vars->numCodeSteps[icode]; istep++ ) {
-        param->getIntAtLine( "ray_code", &vars->rayCode(istep+1,icode), icode, istep );
+        param->getIntAtLine( "ray_code", &vars->rayCode(istep+1,icode), icode, istep+1 );
       }
     }
     else { // For receiver gather, reverse order of ray code...
       for( int istep = 0; istep < vars->numCodeSteps[icode]; istep++ ) {
-        param->getIntAtLine( "ray_code", &vars->rayCode(istep+1,icode), icode, vars->numCodeSteps[icode]-istep-1 );
+        param->getIntAtLine( "ray_code", &vars->rayCode(istep+1,icode), icode, vars->numCodeSteps[icode]-(istep+1)-1 );
       }
       // ...also, check whether ray code arrives at receiver from above --> set up/down flag 'upwards' = -1
       if( vars->numCodeSteps[icode] > 1 && vars->rayCode(2,icode) < vars->rayCode(1,icode) ) {
@@ -1022,9 +1017,48 @@ void exec_mod_ray2d_(
     return;
   }
 
+  if( vars->isFirstCall ) {
+    vars->isFirstCall = false;
+    if( vars->filename_timeout.size() > 0 ) {
+      vars->file_timeout = fopen(vars->filename_timeout.c_str(),"w");
+      if( vars->file_timeout == NULL ) {
+        log->error("Error opening output file %s\n", vars->filename_timeout.c_str() );
+      }
+    }
+    if( vars->filename_intout.size() > 0 ) {
+      FILE* file_intout = fopen(vars->filename_intout.c_str(),"w");
+      if( file_intout == NULL ) {
+        log->error("Error opening model output file %s\n", vars->filename_intout.c_str() );
+      }
+      int npoints_intout = 50;
+      float dx = (vars->x_int(vars->numPointsInt[0]-1,0) - vars->x_int(0,0)) / float(npoints_intout-1);
+
+      for( int kInt = 0; kInt < vars->numInterfaces; kInt++ ) {
+        int j = 0;
+        for( int ip = 0; ip < npoints_intout; ip++ ) {
+          float x_output2 = vars->x_int(0,0) + (float)(ip) * dx;
+          while( x_output2 > vars->x_int(j+1,kInt) ) {
+            j = j + 1;
+            fprintf(file_intout,"%f %f\n", vars->x_int(j,kInt),vars->z_int(j,kInt));
+          }
+          float tmpx = x_output2 - vars->x_int(j,kInt);
+          float zout = ((vars->d_int(j,kInt)*tmpx + vars->c_int(j,kInt))*tmpx + vars->b_int(j,kInt))*tmpx + vars->z_int(j,kInt);
+          fprintf(file_intout,"%f %f\n", x_output2, zout);
+        }
+        fprintf(file_intout,"\n");
+      }
+      fclose(file_intout);
+    }
+  }
+
   int numTraces = traceGather->numTraces();
 
   // Set source & receiver geometry
+  // Add one trace in order to coompute zero offset (in case of option NMO_TIME)
+  //  int numTracesInternal = numTraces;
+  //  if( vars->nmoMethod == mod_ray2d::NMO_TIME ) {
+  //    numTracesInternal = numTraces + 1;
+  //  }
   csMatrixFStyle<float> xz_rec(numTraces,2);
   float sou_x;
   float sou_z;
@@ -1118,24 +1152,29 @@ void exec_mod_ray2d_(
   }
   int numReclines = 1;
   int numReceivers = numTraces;
+  log->line("numTraces: %d, nrec: %d %d  %f %f %f\n",
+            numTraces, numReceivers, vars->maxNumCodeSteps, vars->dtray, vars->spread_dist, vars->spread_angle_rad);
+
+  if( vars->nmoMethod != mod_ray2d::NMO_NONE ) {
+    numReceivers = numTraces + 1;
+    xz_rec(numTraces,0) = sou_x;
+    xz_rec(numTraces,1) = sou_z;
+  }
   int maxNumReceivers = numReceivers;
   float sou_time  = 0.0;
 
   int flag_smooth    = 0;
   int flag_surface   = 0;
 
-  log->line("numTraces: %d, nrec: %d %d  %f %f %f\n",
-            numTraces, numReceivers, vars->maxNumCodeSteps, vars->dtray, vars->spread_dist, vars->spread_angle_rad);
-
   csSortManager sortManager( 1, csSortManager::TREE_SORT );
-  sortManager.resetValues( numTraces );
-  for( int itrc = 0; itrc < numTraces; itrc++ ) {
+  sortManager.resetValues( numReceivers );
+  for( int itrc = 0; itrc < numReceivers; itrc++ ) {
     sortManager.setValue( itrc, 0, xz_rec(itrc,0) );
   }
   sortManager.sort();
 
-  csMatrixFStyle<float> xz_rec_sorted(numTraces,2);
-  for( int itrc = 0; itrc < numTraces; itrc++ ) {
+  csMatrixFStyle<float> xz_rec_sorted(numReceivers,2);
+  for( int itrc = 0; itrc < numReceivers; itrc++ ) {
     int index = sortManager.sortedIndex(itrc);
     xz_rec_sorted(itrc,0) = xz_rec(index,0);
     xz_rec_sorted(itrc,1) = xz_rec(index,1);
@@ -1149,7 +1188,7 @@ void exec_mod_ray2d_(
   */
 
   int maxNumArrivals = 20;
-  int numTimeCodes = 2 * vars->numCodes;  // "Allocate" enough space for potential additional arrivals (second arrivals, direct arrival etc)
+  int numTimeCodes = 5 * vars->numCodes + 1;  // "Allocate" enough space for potential additional arrivals (second arrivals, direct arrival etc)
   // !CHANGE! Problem: How to record direct arrival, or multiples? (numCodes is only the number of reflection codes. Direct arrival is in addition to that)
   csMatrixFStyle<float> time;
   csMatrixFStyle<float> amplitude;
@@ -1339,10 +1378,20 @@ void exec_mod_ray2d_(
     float* timesOut = new float[numTimes];
     timesIn[0]  = 0.0f;
     timesOut[0] = 0.0f;
-
-    for( int itrc = 0; itrc < numTraces; itrc++ ) {
+    /*    int indexZeroOffset = 0;
+    if( vars->nmoMethod == mod_ray2d::NMO_TIME ) {
+      for( int itrc = 0; itrc < numReceivers; itrc++ ) {
+        int tmpIndex = sortManager.sortedIndex(itrc);
+        if( tmpIndex == numTraces ) {
+	  indexZeroOffset = itrc;
+          break;
+        }
+      }
+      } */
+    for( int itrc = 0; itrc < numReceivers; itrc++ ) {
       // Make sure to match sorted time array with unsorted input tracegather
       int sortedIndex = sortManager.sortedIndex(itrc);
+      if( sortedIndex >= numTraces ) continue;
       float* samples = traceGather->trace(sortedIndex)->getTraceSamples();
 
       memcpy( buffer, samples, shdr->numSamples*sizeof(float) );
@@ -1375,9 +1424,10 @@ void exec_mod_ray2d_(
     delete [] timesOut;
   }
 
-  for( int itrc = 0; itrc < numTraces; itrc++ ) {
+  for( int itrc = 0; itrc < numReceivers; itrc++ ) {
     // Sort back computed values to original sorting
     int sortedIndex = sortManager.sortedIndex(itrc);
+    if( sortedIndex >= numTraces ) continue;
     csTraceHeader* trcHdr = traceGather->trace(sortedIndex)->getTraceHeader();
     for( int icode = 0; icode < vars->numCodes; icode++ ) {
       trcHdr->setFloatValue( vars->hdrId_rayTime[icode], time(itrc,0,icode)*1000.0f );
@@ -1446,6 +1496,9 @@ void params_mod_ray2d_( csParamDef* pdef ) {
   pdef->addOption( "kinematic", "Generate seismogram with constant wavelet" );
 
   pdef->addParam( "ray_code", "Ray code definition", NUM_VALUES_VARIABLE);
+  pdef->addValue( "down", VALTYPE_OPTION );
+  pdef->addOption( "down", "Ray travels downwards from source" );
+  pdef->addOption( "up", "Ray travels upwards from source" );
   pdef->addValue( "", VALTYPE_NUMBER, "List of ray codes defining one ray path from source to receiver" );
 
   pdef->addParam( "max_offset", "Define maximum source-receiver offset for 1D model", NUM_VALUES_FIXED );

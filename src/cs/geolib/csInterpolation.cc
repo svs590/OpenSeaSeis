@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include "geolib_math.h"
+#include "csException.h"
 
 using namespace cseis_geolib;
 
@@ -227,6 +229,11 @@ void csInterpolation::xy2yxInterpolation( float const* arrayIn, float* arrayOut,
   int isamp2 = (int)(arrayIn[numSamples-1]/sampleInt);
   if( isamp1 < 0 ) isamp1 = 0;
   if( isamp2 > numSamples-1 ) isamp2 = numSamples-1;
+  if( isamp1 >= numSamples ) {
+    isamp1 = numSamples-1;
+    //    fprintf(stderr,"Ouch %d %d \n", isamp1, numSamples);
+    //  throw( csException("Ouch %d %d \n", isamp1, numSamples) );
+  }
   for( int isamp = 0; isamp <= isamp1; isamp++ ) {
     arrayOut[isamp] = valueInvalid;
   }
@@ -234,7 +241,7 @@ void csInterpolation::xy2yxInterpolation( float const* arrayIn, float* arrayOut,
     arrayOut[isamp] = valueInvalid;
   }
   int sIndex = isamp1;
-  int counter = 0;
+  int counter = 1;
   while( sIndex <= isamp2 ) {
     while( arrayIn[counter] < (float)sIndex*sampleInt && counter < numSamples ) counter += 1;
     if( counter == numSamples ) break;
@@ -249,18 +256,17 @@ void csInterpolation::xy2yxInterpolation( float const* arrayIn, float* arrayOut,
   }
 }
 
-void csInterpolation::linearInterpolation( int numSamplesIn, float const* xin, float const* yin,
-                                           int numSamplesOut, float sampleIntOut, float* yout )
+void csInterpolation::linearInterpolation( int numSamplesIn, float const* xin, float const* yin, int numSamplesOut, float sampleIntOut, float* yout )
 {
   float x0 = xin[0];
   float y0 = yin[0];
   float xN = xin[numSamplesIn-1];
   float yN = yin[numSamplesIn-1];
 
-  int sample0 = (int)(x0 / sampleIntOut);
+  int sample0 = MIN( (int)(x0 / sampleIntOut), numSamplesOut-1 );
   int sampleN = (int)(xN / sampleIntOut) + 1;
   if( sampleN > numSamplesOut ) sampleN = numSamplesOut;
-  
+
   for( int isamp = 0; isamp <= sample0; isamp++ ) {
     yout[isamp] = y0;
   }

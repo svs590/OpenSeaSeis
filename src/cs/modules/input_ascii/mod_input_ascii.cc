@@ -33,6 +33,7 @@ namespace mod_input_ascii {
     int hdrId_binx;
     int hdrId_biny;
     int hdrId_trcno;
+    int hdrId_chan;
 
     double zmap_noValue;
     int zmap_numValues;
@@ -88,6 +89,7 @@ void init_mod_input_ascii_( csParamManager* param, csInitPhaseEnv* env, csLogWri
   vars->hdrId_binx  = -1;
   vars->hdrId_biny  = -1;
   vars->hdrId_trcno = -1;
+  vars->hdrId_chan  = -1;
   vars->hdrId_time_samp1 = -1;
   vars->hdrId_time_samp1_us = -1;
   vars->hdrId_sou_z = -1;
@@ -113,6 +115,23 @@ void init_mod_input_ascii_( csParamManager* param, csInitPhaseEnv* env, csLogWri
     }
     else {
       log->error("Option not recognised: %s", text.c_str());
+    }
+  }
+  int colIndexTime  = 0;
+  int colIndexValue = 1;
+  int colIndexTrace = -1;
+  if( vars->inputFormat == cseis_io::csASCIIFileReader::FORMAT_COLUMNS ) {
+    if( param->exists("format") && param->getNumValues("format") > 1 ) {
+      param->getInt( "format", &colIndexTime, 1 );
+      colIndexTime  -= 1;
+      if( param->getNumValues("format") > 2 ) {
+        param->getInt( "format", &colIndexValue, 2 );
+        colIndexValue -= 1;
+        if( param->getNumValues("format") > 3 ) {
+          param->getInt( "format", &colIndexTrace, 3 );
+          colIndexTrace -= 1;
+        }
+      }
     }
   }
 
@@ -170,7 +189,7 @@ void init_mod_input_ascii_( csParamManager* param, csInitPhaseEnv* env, csLogWri
     vars->asciiFileReader = new cseis_io::csASCIIFileReader( filename, vars->inputFormat );
     bool success = false;
     if( vars->inputFormat != cseis_io::csASCIIFileReader::FORMAT_ZMAP ) {
-      success = vars->asciiFileReader->initialize( vars->asciiParam );
+      success = vars->asciiFileReader->initialize( vars->asciiParam, colIndexTime, colIndexValue, colIndexTrace );
     }
     else {
       success = vars->asciiFileReader->initializeZMap( vars->asciiParam,
@@ -244,6 +263,7 @@ void init_mod_input_ascii_( csParamManager* param, csInitPhaseEnv* env, csLogWri
     vars->hdrId_biny = hdef->addStandardHeader(cseis_geolib::HDR_BIN_Y.name);
   }
 
+  vars->hdrId_chan          = hdef->addStandardHeader(cseis_geolib::HDR_CHAN.name);
   vars->hdrId_trcno         = hdef->addStandardHeader(cseis_geolib::HDR_TRCNO.name);
   vars->hdrId_time_samp1    = hdef->headerIndex(cseis_geolib::HDR_TIME_SAMP1.name);
   vars->hdrId_time_samp1_us = hdef->headerIndex(cseis_geolib::HDR_TIME_SAMP1_US.name);
@@ -369,6 +389,7 @@ bool exec_mod_input_ascii_(
   // Set trace headers
   csTraceHeader* trcHdr = trace->getTraceHeader();
   trcHdr->setIntValue( vars->hdrId_trcno, vars->traceCounter );
+  trcHdr->setIntValue( vars->hdrId_chan, vars->asciiParam->traceNumber );
 
   double scalar = ( vars->unit == mod_input_ascii::UNIT_MS ) ? 0.001 : 1.0;
   int timeFirstSamp_s  = (int)( vars->asciiParam->timeFirstSamp * scalar );
@@ -393,12 +414,17 @@ void params_mod_input_ascii_( csParamDef* pdef ) {
   pdef->addParam( "filename", "Input file name", NUM_VALUES_FIXED );
   pdef->addValue( "", VALTYPE_STRING, "Input file name" );
 
-  pdef->addParam( "format", "Input ASCII file format", NUM_VALUES_FIXED);
+  pdef->addParam( "format", "Input ASCII file format", NUM_VALUES_VARIABLE);
   pdef->addValue( "columns", VALTYPE_OPTION );
-  pdef->addOption( "signature", "Read in source signature from Nucleus ASCII file" );
+  pdef->addOption( "signature", "Read in source signature from Nucleus ASCII file", "Supported ASCII formats are: Far-field signature, Nucleus+ wavelet file" );
   pdef->addOption( "columns", "Simple file format with 2 or 3 columns:  Time[ms]  Amplitude  (Trace number)",
                    "Trace number column is optional" );
   pdef->addOption( "zmap", "Input grid data in ZMAP format");
+  //  pdef->addOption( "nucleus_wav", "Read in source signature from Nucleus+ wavelet (*.wav) ASCII file" );
+  //  pdef->addOption( "spikogram", "Read in pairs of time/amplitude values");
+  pdef->addValue( "1", VALTYPE_NUMBER, "For 'column' format: Column number specifying time (or other sample unit)" );
+  pdef->addValue( "2", VALTYPE_NUMBER, "For 'column' format: Column number specifying sample value" );
+  pdef->addValue( "-1", VALTYPE_NUMBER, "Optional: Column number specifying trace number. -1: Trace number not applicable" );
 
   pdef->addParam( "sample_int", "Sample interval [ms]", NUM_VALUES_FIXED,
                   "Set/override sample interval found in input file with this value");

@@ -11,6 +11,7 @@ namespace mod_test {
   struct VariableStruct {
     int traceCounter;
     int numTracesToSkip;
+    int hdrID;
   };
 }
 using mod_test::VariableStruct;
@@ -21,12 +22,15 @@ using mod_test::VariableStruct;
 void init_mod_test_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* log )
 {
   csExecPhaseDef*   edef = env->execPhaseDef;
+  csTraceHeaderDef* hdef = env->headerDef;
   //  csSuperHeader*    shdr = env->superHeader;
   VariableStruct* vars   = new VariableStruct();
   edef->setVariables( vars );
 
   vars->traceCounter    = 0;
   vars->numTracesToSkip = 0;
+  vars->hdrID = -1;
+
   edef->setExecType( EXEC_TYPE_SINGLETRACE );
 
   if( param->exists("skip") ) {
@@ -35,7 +39,14 @@ void init_mod_test_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* lo
       log->error("Incorrect entry for number of traces to skip: %d", vars->numTracesToSkip);
     }
   }
-
+  if( param->exists("header") ) {
+    std::string text;
+    param->getString("header", &text );
+    vars->hdrID = hdef->headerIndex( text );
+  }
+  else {
+    vars->hdrID = hdef->addHeader( TYPE_FLOAT, "mean", "Mean value" );
+  }
   //  int numSamples  = shdr->numSamples;
   //  float sampleInt = shdr->sampleInt;
 }
@@ -68,6 +79,8 @@ bool exec_mod_test_(
     for( int isamp = 0; isamp < shdr->numSamples; isamp++ ) {
       samples[isamp] -= (float)mean;
     }
+    csTraceHeader* trcHdr = trace->getTraceHeader();
+    trcHdr->setFloatValue( vars->hdrID, mean );
     vars->traceCounter = 0;
     return true;
   }
@@ -85,23 +98,9 @@ void params_mod_test_( csParamDef* pdef ) {
   pdef->addParam( "skip", "Number of traces to skip", NUM_VALUES_FIXED );
   pdef->addValue( "0", VALTYPE_NUMBER, "Number of traces to skip" );
 
- // pdef->addParam( "zero", "Reset traces to zero?", NUM_VALUES_FIXED );
- // pdef->addValue( "no", VALTYPE_OPTION );   // Default option = no
- // pdef->addOption( "yes", "Reset traces" );  // An option can be any arbitrary text
- // pdef->addOption( "no", "Do not reset traces" );
+  pdef->addParam( "header", "Trace header to store mean trace value", NUM_VALUES_FIXED );
+  pdef->addValue( "mean", VALTYPE_STRING, "Trace header name" );
 }
-/*
-  if( param->exists("zero") ) {
-    std::string text;
-    param->getString("zero", &text);
-    if( !text.compare("yes") ) {
-      vars->doReset = true;
-    }
-    else if( !text.compare("no") ) {
-      vars->doReset = false;
-    }
-  }
-*/
 extern "C" void _params_mod_test_( csParamDef* pdef ) {
   params_mod_test_( pdef );
 }

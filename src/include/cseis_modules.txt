@@ -37,7 +37,8 @@
   ENS_DEFINE       SINGLE   1.0
   FFT              SINGLE   1.0
   FFT_2D           MULTI    1.0
-  FILTER           SINGLE   1.0
+  FILTER           MULTI    1.0
+  FXDECON          MULTI    1.0
   GAIN             SINGLE   1.0
   GEOTOOLS         SINGLE   1.0
   HDR_DEL          SINGLE   1.0
@@ -69,6 +70,7 @@
   OUTPUT           SINGLE   1.0
   OUTPUT_RSF       SINGLE   1.0
   OUTPUT_SEGY      SINGLE   1.0
+  P190             SINGLE   1.0
   PICKING          MULTI    1.0
   POSCALC          MULTI    1.0
   PZ_SUM           MULTI    1.0

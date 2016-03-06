@@ -156,13 +156,13 @@ void exec_mod_overlap_(
     *numTrcToKeep = 0;
   }
 
-  int time_samp1_s[3];
-  int time_samp1_us[3];
-  for( int itrc = 0; itrc < traceGather->numTraces(); itrc++ ) {
-    csTraceHeader* trcHdr = traceGather->trace(itrc)->getTraceHeader();
-    time_samp1_s[itrc]  = trcHdr->intValue( vars->hdrID_time_samp1_s );
-    time_samp1_us[itrc] = trcHdr->intValue( vars->hdrID_time_samp1_us );
-    log->line("Trace #-5d,  Time:  %12ds   %10dus", itrc, time_samp1_s[itrc], time_samp1_us[itrc]);
+  if( edef->isDebug() ) {
+    for( int itrc = 0; itrc < traceGather->numTraces(); itrc++ ) {
+      csTraceHeader* trcHdr = traceGather->trace(itrc)->getTraceHeader();
+      int time_samp1_s  = trcHdr->intValue( vars->hdrID_time_samp1_s );
+      int time_samp1_us = trcHdr->intValue( vars->hdrID_time_samp1_us );
+      log->line("Trace #-5d,  Time:  %12ds   %10dus", itrc, time_samp1_s, time_samp1_us);
+    }
   }
 }
 

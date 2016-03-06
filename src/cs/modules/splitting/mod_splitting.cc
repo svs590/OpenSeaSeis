@@ -7,6 +7,7 @@
 #include "geolib_methods.h"
 #include "csTimeStretch.h"
 #include "cseis_curveFitting.h"
+#include "csFileUtils.h"
 #include <cmath>
 #include <cstring>
 
@@ -58,7 +59,10 @@ namespace mod_splitting {
     int hdrId_s1az;
     int hdrId_window;
     int hdrId_identifier;
-  };
+
+    std::string filename_info;
+    bool isFirstCall;
+ };
   static int const OUTPUT_S1S2_STACKS     = 4;
   static int const OUTPUT_CORRECTED_DATA  = 8;
   static int const OUTPUT_LAST_S1S2_STACKS = 12;
@@ -136,6 +140,9 @@ void init_mod_splitting_( csParamManager* param, csInitPhaseEnv* env, csLogWrite
   vars->corr_lags = NULL;
   vars->rotationMode = -1;
   vars->ensembleCounter = 0;
+
+  vars->filename_info = "";
+  vars->isFirstCall = true;
 
   std::string text;
 
@@ -271,10 +278,9 @@ void init_mod_splitting_( csParamManager* param, csInitPhaseEnv* env, csLogWrite
   if( param->exists("write_info") ) {
     param->getString("write_info", &text, 0);
     vars->hdrId_identifier = hdef->headerIndex(text);
-    param->getString("write_info", &text, 1);
-    vars->fout = fopen(text.c_str(),"w");
-    if( vars->fout == NULL ) {
-      log->error("Error when opening ASCII output file '%s'", text.c_str());
+    param->getString("write_info", &vars->filename_info, 1);
+    if( !csFileUtils::createDoNotOverwrite( vars->filename_info ) ) {
+      log->error("Error opening output file %s\n", vars->filename_info.c_str() );
     }
   }
 
@@ -347,6 +353,16 @@ void exec_mod_splitting_(
     }
     delete vars; vars = NULL;
     return;
+  }
+
+  if( vars->isFirstCall ) {
+    vars->isFirstCall = false;
+    if( vars->filename_info.size() > 0 ) {
+      vars->fout = fopen(vars->filename_info.c_str(),"w");
+      if( vars->fout == NULL ) {
+        log->error("Error when opening ASCII output file '%s'", vars->filename_info.c_str());
+      }
+    }
   }
 
   //---------------------------------------------------------------------

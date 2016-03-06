@@ -40,14 +40,15 @@ public:
    * @param cutOffHz Cut-off frequency [Hz].
    * @param order    Filter order.
    */
-  void setDesigLowPass( float cutOffHz, int order );
+  void setDesigLowPass( float cutOffHz, float order );
   /**
    * Apply high pass filter to designature filter.
    * @param cutOffHz Cut-off freuquency [Hz].
    * @param order    Filter order.
    */
-  void setDesigHighPass( float cutOffHz, int order );
+  void setDesigHighPass( float cutOffHz, float order );
 
+  void setDesigHighEnd( float freq );
   /**
    * Apply cosine taper around notch frequency
    */
@@ -66,13 +67,13 @@ public:
   bool applyFilter( float* samples, int numSamples );
 
   /**
-   * Write designature filter to output stream
+   * Write designature filter as spectrum to output stream
    */
-  void dump( std::FILE* stream ) const;
+  void dump_spectrum( std::FILE* stream ) const;
   /**
    * Write designature filter as wavelet to output stream
    */
-  void dump_wavelet( std::FILE* stream );
+  void dump_wavelet( std::FILE* stream, bool doNormalize );
 
 private:
   void initDesignature( float const* input_wavelet, float percWhiteNoise, float timeZero_s, float const* output_wavelet );
@@ -84,6 +85,14 @@ private:
   float* myPhaseSpecIn;
 
   int myFilterType;
+
+  /*
+  int myNotchIndexFirstRed;
+  int myNotchIndexLastRed;
+  bool myIsNotchSuppression;
+  int myNotchIndexFirst;
+  int myNotchWidth;
+  */
 };
 
 } // namespace

@@ -27,7 +27,7 @@ c
       integer MAX_RECEIVERS, MAX_ARRIVALS, nreclines, N_ARRPARAM
       integer MAX_TIMEFILES
 
-      parameter(MAX_RAYS = 5000, N_PARAM = 8, N_RTPARAM = 8)
+      parameter(MAX_RAYS = 20000, N_PARAM = 8, N_RTPARAM = 8)
       parameter(MAX_HALTS = 20)
       parameter(N_ARRPARAM = 6)
       parameter(MAX_TIMEFILES = 80)

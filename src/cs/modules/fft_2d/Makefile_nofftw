@@ -8,7 +8,7 @@ MODULE    = $(SRCDIR)/cs/modules/$(MODULE_NAME)/mod_$(MODULE_NAME)_dummy.cc
 OBJS      = $(OBJDIR)/mod_$(MODULE_NAME).o
 LIB_v1.0  = libmod_$(MODULE_NAME).so.1.0
 
-INCS =  -I"$(SRCDIR)/cs/geolib"  -I"$(SRCDIR)/cs/system" -I"$(SRCDIR)/cs/segd"  -I"$(SRCDIR)/cs/io" -I"$(SRCDIR)/cs/segy"
+INCS =  -I"$(SRCDIR)/cs/geolib"  -I"$(SRCDIR)/cs/system" -I"$(SRCDIR)/cs/segd"  -I"$(SRCDIR)/cs/io" -I"$(SRCDIR)/cs/segy" -I"$SRCDIR)/cs/mseed"
 
 ALL_FLAGS = $(INCS) $(COMMON_FLAGS) -fPIC
 

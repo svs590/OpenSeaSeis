@@ -163,8 +163,6 @@ bool csHelp::moduleTextHelp( std::string moduleNameIn, std::string versionString
   std::string const* names = csMethodRetriever::getStandardModuleNames();
   csParamDef pdef;
 
-  fprintf(myStream,"\n#------------HELP----------\n\n");
-
   try {
     pdef.clear();
     MParamPtr funcPtr = NULL;

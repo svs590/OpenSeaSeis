@@ -5,6 +5,7 @@
 #include "csRSFHeader.h"
 #include "csException.h"
 #include "csVector.h"
+#include "csFileUtils.h"
 #include "geolib_endian.h"
 #include "csByteConversions.h"
 #include <string>
@@ -13,8 +14,7 @@
 using namespace cseis_io;
 using namespace cseis_geolib;
 
-csRSFWriter::csRSFWriter( std::string filename, int nTracesBuffer, bool reverseByteOrder, bool swapDim3, bool outputGrid,
-			  double tolerance) :
+csRSFWriter::csRSFWriter( std::string filename, int nTracesBuffer, bool reverseByteOrder, bool swapDim3, bool outputGrid, double tolerance ) :
   NTRACES_BUFFER(nTracesBuffer), TOLERANCE(tolerance)
 {
   myBigBuffer    = NULL;
@@ -26,6 +26,12 @@ csRSFWriter::csRSFWriter( std::string filename, int nTracesBuffer, bool reverseB
   myFilename     = filename;
   myIsAtEOF      = false;
   myDoSwapEndian = reverseByteOrder;
+
+  // Create output files if they do not exist yet. Do not overwrite.
+  bool fileExists = csFileUtils::createDoNotOverwrite( myHdr->filename_bin_full_path );
+  if( !fileExists ) throw( csException("Cannot open RSF binary file for writing: %s", myHdr->filename_bin_full_path.c_str() ) );
+  fileExists = csFileUtils::createDoNotOverwrite( myFilename );
+  if( !fileExists ) throw csException("Cannot open RSF header file for writing: %s", myFilename.c_str());
 }
 //-----------------------------------------------------------------------------------------
 csRSFWriter::~csRSFWriter() {
@@ -86,8 +92,6 @@ void csRSFWriter::initialize( csRSFHeader const* hdr ) {
   myTraceCounter   = 0;
   myCurrentTrace   = 0;
   myNumSavedTraces = 0;
-
-  openFile();
 
   myStage = csRSFWriter::STAGE_2_SET_ORIG;
   //  myHasBeenInitialized = true;

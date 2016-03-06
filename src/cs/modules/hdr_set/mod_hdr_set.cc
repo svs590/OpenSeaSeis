@@ -140,16 +140,13 @@ void init_mod_hdr_set_( csParamManager* param, csInitPhaseEnv* env, csLogWriter*
     log->error("Error when initializing input table '%s': %s\n", text.c_str(), exc.getMessage() );
   }
 
-  /*
   if( edef->isDebug() ) {
     for( int i = 0; i < vars->table->numLocations(); i++ ) {
       int station = (int)vars->table->getKeyValue( i, 0 );
-      double x = vars->table->getKeyValue( i, 1 );
       double value = vars->table->getValue( i, 0 );
-      fprintf(stdout,"%d  %d %f\n", station, (int)x, value);
+      fprintf(stdout,"%d  %f\n", station, value);
     }
   }
-  */
 
 }
 

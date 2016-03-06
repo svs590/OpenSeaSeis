@@ -89,6 +89,8 @@ namespace mod_input_segd {
     int* hdrId_extra;
     int numExtraHdrs;
     int chanSetIndexToRead;
+    std::string filenameDumpHeaders;
+    bool isFirstCall;
   };
 }
 using mod_input_segd::VariableStruct;
@@ -174,7 +176,8 @@ void init_mod_input_segd_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
 
   vars->hdrId_extra  = NULL;
   vars->numExtraHdrs = 0;
-
+  vars->filenameDumpHeaders = "";
+  vars->isFirstCall = true;
 
   //---------------------------------------------------------------
   csSegdReader::configuration config;
@@ -440,9 +443,8 @@ void init_mod_input_segd_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
     }
   }
 
-  string filenameDumpHeaders = "";
   if( param->exists("dump_filename") ) {
-    param->getString( "dump_filename", &filenameDumpHeaders );
+    param->getString( "dump_filename", &vars->filenameDumpHeaders );
   }
 //  else if( vars->dumpHdrFlag != 0 ) {
 //    vars->file_dumpHeaders = (std::ofstream*)(&std::cout);
@@ -498,23 +500,10 @@ void init_mod_input_segd_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
   vars->hdrId_fileno = hdef->headerIndex(HDR_FILENO.name);
 
   if( vars->dumpHdrFlag != 0 || vars->dumpTrcHeaders ) {
-    try {
-      if( filenameDumpHeaders.size() > 0 ) {
-        vars->file_dumpHeaders = new std::ofstream ( filenameDumpHeaders.c_str() );
+    if( vars->filenameDumpHeaders.size() > 0 ) {
+      if( !csFileUtils::createDoNotOverwrite( vars->filenameDumpHeaders ) ) {
+        log->error("Error when opening header dump file '%s' for writing.", vars->filenameDumpHeaders.c_str() );
       }
-      else {
-        vars->file_dumpHeaders = (std::ofstream*)(&std::cout);
-      }
-      if( vars->file_dumpHeaders == NULL ) {
-        log->line("Could not open header dump file '%s'.", filenameDumpHeaders.c_str() );
-        env->addError();
-      }
-    }
-    catch( string text ) {
-      log->error("Error when opening header dump file '%s'.\nSystem message: %s", filenameDumpHeaders.c_str(), text.c_str() );
-    }
-    catch(...) {
-      log->error("Error when opening header dump file '%s'.", filenameDumpHeaders.c_str() );
     }
   }
   
@@ -659,9 +648,6 @@ void init_mod_input_segd_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
 
   vars->comFileHdr = vars->segdReader->getCommonFileHeaders();
 
-  if( vars->dumpHdrFlag != 0 ) {
-    vars->segdReader->dumpFileHeaders( vars->dumpHdrFlag, vars->file_dumpHeaders );
-  }
   if( vars->dumpEssFileInfo ) {
     vars->segdReader->dumpEssentialFileInfo( log->getFile() );
   }
@@ -761,6 +747,30 @@ bool exec_mod_input_segd_(
     delete vars;
     vars = NULL;
     return true;
+  }
+
+  if( vars->isFirstCall ) {
+    vars->isFirstCall = false;
+    if( vars->dumpHdrFlag != 0 || vars->dumpTrcHeaders ) {
+      try {
+        if( vars->filenameDumpHeaders.size() > 0 ) {
+          vars->file_dumpHeaders = new std::ofstream ( vars->filenameDumpHeaders.c_str() );
+          if( vars->file_dumpHeaders == NULL ) {
+            log->error("Could not open header dump file '%s'.", vars->filenameDumpHeaders.c_str() );
+          }
+        }
+        else {
+          vars->file_dumpHeaders = (std::ofstream*)(&std::cout);
+        }
+      }
+      catch( string text ) {
+        log->error("Error when opening header dump file '%s'.\nSystem message: %s", vars->filenameDumpHeaders.c_str(), text.c_str() );
+      }
+      catch(...) {
+        log->error("Error when opening header dump file '%s'.", vars->filenameDumpHeaders.c_str() );
+      }
+      vars->segdReader->dumpFileHeaders( vars->dumpHdrFlag, vars->file_dumpHeaders );
+    }
   }
 
   if( vars->isAtEOF ) {

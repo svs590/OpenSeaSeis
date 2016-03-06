@@ -43,7 +43,6 @@ void csTableNew::init( int tableType ) {
   //  myKeyInterpolate = NULL;
   myValueColumns   = NULL;
 
-  myNumCols        = 0;
   myNumLocations   = 0;
   myHasReadTableContents = false;
   myHasBeenInitialized   = false;
@@ -158,9 +157,9 @@ void csTableNew::addValue( int columnIndex ) {
   myNumValues      = newNumValues;
   myValueColumns[myNumValues-1] = columnIndex;
   if( myTableType == TABLE_TYPE_TIME_FUNCTION ) {
-    if( myNumValues > 1 ) {
-      throw( csException("csTableNew::addValue: Only one value column is currently supported for time function tables") );
-    }
+    //    if( myNumValues > 1 ) {
+    //   throw( csException("csTableNew::addValue: Only one value column is currently supported for time function tables") );
+    //  }
   }
 }
 
@@ -249,7 +248,7 @@ void csTableNew::readTableContents( bool doSort ) {
   csVector<double*> keyValueList;
 
   csVector<double> timeList;
-  csVector<double> valueListTime;
+  //  csVector<double> valueListTime;
   csVector<csTimeFunction<double>*> timeFunctionList;
 
   //-------------------------------
@@ -281,10 +280,21 @@ void csTableNew::readTableContents( bool doSort ) {
           if( myTableType == TABLE_TYPE_DUPLICATE_KEYS && valueList[0].size() != 0 ) addData_internal( valueList );
         }
         else if ( timeList.size() != 0 ) {
-          csTimeFunction<double>* timeFunc = new csTimeFunction<double>();
-          timeFunc->set( &valueListTime, &timeList );
+          csTimeFunction<double>* timeFunc = new csTimeFunction<double>( myNumValues );  // myNumValues: spatial values in input table
+          for( int ival = 0; ival < myNumValues; ival++ ) {
+            //  csVector<double>* valueList = new csVector<double>[myNumValues];
+            //  csVector<double> valueListTime;
+            timeFunc->set( &(valueList[ival]), &timeList, ival );
+            valueList[ival].clear();
+          }
+          /*
+no matching function for call to 'cseis_geolib::csTimeFunction<double>::set(cseis_geolib::csVector<double>&, cseis_geolib::csVector<double>*, 
+no matching function for call to 'cseis_geolib::csTimeFunction<double>::set(cseis_geolib::csVector<double>&, 
+                                                                            cseis_geolib::csVector<T>*, const cseis_geolib::csVector<double>*
+           */
+
+          //          valueListTime.clear();
           timeFunctionList.insertEnd( timeFunc );
-          valueListTime.clear();
           timeList.clear();
 
           double* keysTMP = new double[myNumAllKeys];
@@ -302,29 +312,27 @@ void csTableNew::readTableContents( bool doSort ) {
       }
     } // End: Extract key values
     
-    if( myTableType != TABLE_TYPE_TIME_FUNCTION ) {
-      for( int ival = 0; ival < myNumValues; ival++ ) {
-        valueList[ival].insertEnd( atof(tokenList.at( myValueColumns[ival] ).c_str()) );
-      }
+    for( int ival = 0; ival < myNumValues; ival++ ) {
+      valueList[ival].insertEnd( atof(tokenList.at( myValueColumns[ival] ).c_str()) );
     }
-    else {
+    if( myTableType == TABLE_TYPE_TIME_FUNCTION ) {
       timeList.insertEnd( atof(tokenList.at(myIndexTimeCol).c_str()) );
-      valueListTime.insertEnd( atof(tokenList.at( myValueColumns[0] ).c_str()) );
+      //      valueListTime.insertEnd( atof(tokenList.at( myValueColumns[0] ).c_str()) );
     }
 
     counterLines++;
   }  // end while reading lines from input file
 
-  if( myTableType != TABLE_TYPE_TIME_FUNCTION ) {
+  //  if( myTableType != TABLE_TYPE_TIME_FUNCTION ) {
     if( valueList[0].size() == 0 ) {
       throw( csException("No valid line found in input table.\nWrong column numbers specified?\nMax number of columns found in table = %d.\nMax column number specified for key(s)/value(s) = %d", maxTableColumns, maxColumnIndex ) );
     }
-  }
-  else {
-    if( valueListTime.size() == 0 ) {
-      throw( csException("No valid line found in input table.\nWrong column numbers specified?\nMax number of columns found in table = %d.\nMax column number specified for key(s)/value(s) = %d", maxTableColumns, maxColumnIndex ) );
-    }
-  }
+    //  }
+    // else {
+    //  if( valueListTime.size() == 0 ) {
+    //    throw( csException("No valid line found in input table.\nWrong column numbers specified?\nMax number of columns found in table = %d.\nMax column number specified for key(s)/value(s) = %d", maxTableColumns, maxColumnIndex ) );
+    //  }
+    //  }
 
   fclose( myFile );
   myFile = NULL;
@@ -390,8 +398,10 @@ void csTableNew::readTableContents( bool doSort ) {
   }
   else {
     if( timeList.size() != 0 ) {
-      csTimeFunction<double>* timeFunc = new csTimeFunction<double>();
-      timeFunc->set( &valueListTime, &timeList );
+      csTimeFunction<double>* timeFunc = new csTimeFunction<double>( myNumValues );
+      for( int ival = 0; ival < myNumValues; ival++ ) {
+        timeFunc->set( &(valueList[ival]), &timeList, ival );
+      }
       timeFunctionList.insertEnd( timeFunc );
     }
 
@@ -399,6 +409,7 @@ void csTableNew::readTableContents( bool doSort ) {
     for( int i = 0; i < myNumLocations; i++ ) {
       myTimeFunctions2D[i] = timeFunctionList.at(i);
     }
+    myCurrentTimeFunction->resetNumSpatialValues( myNumValues );
   }
 
   if( valueList != NULL ) delete [] valueList;
@@ -493,11 +504,11 @@ bool csTableNew::findInterpKeyLocation( double keyValue_in, int keyIndex, int& l
   // If key value is outside of given range, extrapolate with closest, constant value
   if( diffLeft <= 0 ) {
     locRight = locLeft;
-    return true;
+    return false;
   }
   else if( diffRight >= 0 ) {
     locLeft = locRight;
-    return true;
+    return false;
   }
 
   do {
@@ -514,7 +525,8 @@ bool csTableNew::findInterpKeyLocation( double keyValue_in, int keyIndex, int& l
       weight =
         ( keyValue_in - myKeyValues[keyIndex][locLeft] ) /
         ( myKeyValues[keyIndex][locRight] - myKeyValues[keyIndex][locLeft] );
-      return true;
+      if( weight != 1.0 ) return false;
+      else return true;
     }
     counter -= 1;
   } while( counter >= 0 );
@@ -649,7 +661,7 @@ double csTableNew::interpolate( int valueIndex, double const* keyValues_in ) con
   int locEnd   = myNumLocations-1;
   if( myNumKeys > 0 ) {
     if( !findExactKeyLocation( keyValues_in, locStart, locEnd ) ) {
-      throw( csException("Key location not found. First key value: %f, number of non-interpolated keys: %d ",
+      throw( csException("Exact key location not found. First key value: %f, number of non-interpolated keys: %d. (Possible solution: Interpolate based on key)",
                          keyValues_in[0], myNumKeys) );
     }
   }
@@ -721,6 +733,7 @@ double csTableNew::interpolateStep2( double const* keyValues_in, int keyIndex1, 
 //-----------------------------------------------------------------------------------
 //
 void csTableNew::dump() const {
+  fprintf(stdout,"Table file name:  %s\n", myFilename.c_str() );
   fprintf(stdout,"Number of keys:   %d  (= %d + %d )\n", myNumAllKeys, myNumKeys, myNumInterpKeys );
   fprintf(stdout,"Number of values: %d\n", myNumValues );
   fprintf(stdout,"Num locations:    %d\n", myNumLocations);
@@ -762,9 +775,6 @@ void csTableNew::dump() const {
     }
   }
   else if( myTableType == TABLE_TYPE_TIME_FUNCTION ) {
-    for( int i = 0; i < myNumLocations; i++ ) {
-      fprintf(stdout,"++++++++++++ %d %f\n", i, myTimeFunctions2D[i]->valueAt(0));
-    }
     double* keyValues = new double[myNumAllKeys];
 
     for( int iloc = 0; iloc < myNumLocations; iloc++ ) {
@@ -776,10 +786,16 @@ void csTableNew::dump() const {
       fprintf(stdout,"\n");
       csTimeFunction<double> const* timeFunction = getFunction( keyValues );
       int numValues = timeFunction->numValues();
+      int numSpatialValues = timeFunction->numSpatialValues();
+      fprintf(stdout,"Number of spatial values in function: %d\n", numSpatialValues );
       for( int ival = 0; ival < numValues; ival++ ) {
-        double value = timeFunction->valueAtIndex( ival );
         double time  = timeFunction->timeAtIndex( ival );
-        fprintf(stdout," Time/Value #%-3d  %12f %12f\n", ival+1, time, value );
+        fprintf(stdout," Time/Values #%-3d  %12f ", ival+1, time );
+        for( int is = 0; is < numSpatialValues; is++ ) {
+          double value = timeFunction->valueAtIndex( ival, is );
+          fprintf(stdout,"%12f ", value );
+        }
+        fprintf(stdout,"\n" );
       }
     }
     delete [] keyValues;
@@ -800,16 +816,21 @@ csTimeFunction<double> const* csTableNew::getFunction( double const* keyValues_i
   int locRight   = myNumLocations-1;
   double weightLoc = 1.0;
 
-
-
-
   csTimeFunction<double> const* timeFuncLeft  = myTimeFunctions2D[locLeft];
   csTimeFunction<double> const* timeFuncRight = myTimeFunctions2D[locRight];
-  csTimeFunction<double> tempTimeFuncLeft;
-  csTimeFunction<double> tempTimeFuncRight;
+  csTimeFunction<double> tempTimeFuncLeft( timeFuncLeft->numSpatialValues() );
+  csTimeFunction<double> tempTimeFuncRight( timeFuncLeft->numSpatialValues() );
 
   if( myNumAllKeys > 0 ) {
-    if( myNumInterpKeys == 1 ) {
+    if( myNumInterpKeys == 0 ) { // No interpolation, need to find excact key
+      if( !findInterpKeyLocation( keyValues_in[myNumKeys-1], 0, locLeft, locRight, weightLoc ) ) {
+        throw( csException("Key value not found: %f. Suggest to specify to interpolate key value.\n", keyValues_in[myNumKeys-1]) );
+      }
+      timeFuncLeft  = myTimeFunctions2D[locLeft];
+      timeFuncRight = myTimeFunctions2D[locRight];
+      //      fprintf(stderr,"Locations: %f  %d %d   %f\n", keyValues_in[0], locLeft, locRight, weightLoc );
+    }
+    else if( myNumInterpKeys == 1 ) {
       findInterpKeyLocation( keyValues_in[myNumKeys], 0, locLeft, locRight, weightLoc );
       timeFuncLeft  = myTimeFunctions2D[locLeft];
       timeFuncRight = myTimeFunctions2D[locRight];
@@ -886,14 +907,17 @@ void csTableNew::interpolateTimeFunction( csTimeFunction<double> const* timeFunc
 
   int numTimes = timeList.size();
   csVector<double> valueList;
-  for( int itime = 0; itime < numTimes; itime++ ) {
-    double time = timeList.at(itime);
-    double valueLeft = timeFuncLeft->valueAt( time );
-    double valueRight= timeFuncRight->valueAt( time );
-    valueList.insertEnd( valueLeft + weightLoc * ( valueRight - valueLeft ) );
+  for( int ival = 0; ival < timeFuncLeft->numSpatialValues(); ival++ ) {
+    for( int itime = 0; itime < numTimes; itime++ ) {
+      double time = timeList.at(itime);
+      double valueLeft = timeFuncLeft->valueAt( time, ival );
+      double valueRight= timeFuncRight->valueAt( time, ival );
+      
+      valueList.insertEnd( valueLeft + weightLoc * ( valueRight - valueLeft ) );
+    }
+    newTimeFunction->set( &valueList, &timeList, ival );
+    valueList.clear();
   }
-
-  newTimeFunction->set( &valueList, &timeList );
 
 }
 

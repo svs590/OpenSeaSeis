@@ -72,6 +72,8 @@ public:
 //------------------------------------------------------
   char const* getTraceHeaderValueBlock() const;
   void setTraceHeaderValueBlock( char const* hdrValueBlock, int byteSize );
+  void writeTraceHeaderValueBlock( char const* hdrValueBlock_in, int const* byteMap_in, int const* hdrMap_out, int numHeaders_in );
+  void readTraceHeaderValueBlock( char* hdrValueBlock_out, int const* byteMap_out, int const* hdrMap_out, int numHeaders_out ) const;
 //------------------------------------------------------
   void clear();
   void clearMemory();

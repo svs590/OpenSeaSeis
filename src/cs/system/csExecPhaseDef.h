@@ -104,6 +104,7 @@ public:
    * never finish an infinite loop.
    */
   void setTracesAreWaiting();
+  void setTracesAreWaiting( bool areWaiting );
   /**
    * Has the 'tracesAreWaiting' flag been set?
    * Each time the exec phase of one module is called, this method return false (because it is reset each time).
@@ -114,6 +115,12 @@ public:
    * @return true if this is the last call to the module's exec phase
    */
   bool isLastCall() const;
+  int getTraceMode() const;
+
+  void setTraceMode( int traceMode );
+  void setLastCall( bool isLastCall );
+  void setCleanUp( bool isCleanUp );
+  int getNumTraces() const { return numTraces; }
 
   /// class csModule needs access to the private fields of this class
   friend class csModule;

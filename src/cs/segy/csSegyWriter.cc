@@ -16,6 +16,7 @@
 #include "geolib_endian.h"
 #include "geolib_math.h"
 #include "methods_number_conversions.h"
+#include "csFileUtils.h"
 #include <string>
 #include <cstring>
 
@@ -44,13 +45,15 @@ csSegyWriter::csSegyWriter( std::string filename, int nTracesBuffer, bool revers
   myDoSwapEndian = isPlatformLittleEndian();
   if( reverseByteOrder ) myDoSwapEndian = !myDoSwapEndian;
 
-  openFile();
-
   myCharHdrBlock = new char[csSegyHeader::SIZE_CHARHDR];
   memset( myCharHdrBlock, 0, csSegyHeader::SIZE_CHARHDR );
   myBinHdrBlock  = new byte_t[csSegyHeader::SIZE_BINHDR];
   memset( myBinHdrBlock, 0, csSegyHeader::SIZE_BINHDR );
   myBinHdr       = new csSegyBinHeader( myDoSwapEndian );
+
+  // Create SEGY file if it does not exist yet.
+  bool fileExists = csFileUtils::createDoNotOverwrite( myFilename );
+  if( !fileExists ) throw( csException("Cannot open SEGY output file for writing: %s", myFilename.c_str() ) );
 }
 //-----------------------------------------------------------------------------------------
 csSegyWriter::~csSegyWriter() {
@@ -82,8 +85,15 @@ csSegyWriter::~csSegyWriter() {
   }
 }
 //-----------------------------------------------------------------------------------------
-void csSegyWriter::initialize( csSegyHdrMap const* hdrMap ) {
-  writeCharBinHdr();
+void csSegyWriter::initialize( csSegyHdrMap const* hdrMap, char const* newCharHdr ) {
+  setCharHdr( newCharHdr );
+
+  myBinHdr->encodeHeaders( myBinHdrBlock );
+  myDataSampleFormat = myBinHdr->dataSampleFormat;
+  myNumSamples = myBinHdr->numSamples;
+  mySampleInt = myBinHdr->sampleIntUS * 0.001;
+  mySampleByteSize = 4;   // assume 4 byte floating point
+  myTotalTraceSize = myNumSamples*mySampleByteSize+csSegyHeader::SIZE_TRCHDR;
 
   myBigBuffer = new char[ NTRACES_BUFFER * myTotalTraceSize ];
   memset( myBigBuffer, 0, NTRACES_BUFFER * myTotalTraceSize );
@@ -115,6 +125,7 @@ void csSegyWriter::openFile() {
   if( myFile == NULL ) {
     throw csException("Could not open SEGY file %s", myFilename.c_str());
   }
+  writeCharBinHdr();
 }
 void csSegyWriter::closeFile() {
   if( myFile != NULL ) {
@@ -158,20 +169,12 @@ void csSegyWriter::writeCharBinHdr() {
     }
   }
 
-  myBinHdr->encodeHeaders( myBinHdrBlock );
-  myDataSampleFormat = myBinHdr->dataSampleFormat;
-  myNumSamples = myBinHdr->numSamples;
-  mySampleInt = myBinHdr->sampleIntUS * 0.001;
-
   if( !myIsSUFormat ) {
     sizeWrite = fwrite( (char*)myBinHdrBlock, csSegyHeader::SIZE_BINHDR, 1, myFile );
     if( sizeWrite != 1 ) {
       throw csException("Unexpected end-of-file encountered while writing SEGY binary header");
     }
   }
-
-  mySampleByteSize = 4;   // assume 4 byte floating point
-  myTotalTraceSize = myNumSamples*mySampleByteSize+csSegyHeader::SIZE_TRCHDR;
 }
 //-----------------------------------------------------------------------------------------
 void csSegyWriter::freeCharBinHdr() {
