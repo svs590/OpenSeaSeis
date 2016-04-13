@@ -10,6 +10,7 @@ package cseis.seisdisp;
  */
 public interface csIKeyListener {
   public void keyPressed( java.awt.event.KeyEvent event );
+  public void keyReleased( java.awt.event.KeyEvent event );
 }
 
 
