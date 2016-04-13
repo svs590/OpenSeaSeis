@@ -10,6 +10,5 @@ package cseis.graph;
  */
 public interface csIGraph2DListener {
   public void graph2DValues( float xModel, float yModel );
+  public void graphChanged();
 }
-
-

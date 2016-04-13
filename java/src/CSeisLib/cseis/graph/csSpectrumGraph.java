@@ -68,6 +68,9 @@ public class csSpectrumGraph extends JPanel implements csIGraph2DListener {
   public void graph2DValues(float xModel, float yModel) {
     myStatusBar.setText("Frequency: " + xModel + " Hz   Amplitude: " + yModel);
   }
+  @Override
+  public void graphChanged() {
+  }
 }
 
 
