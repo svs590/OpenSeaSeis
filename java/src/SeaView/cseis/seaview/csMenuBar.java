@@ -130,7 +130,7 @@ public class csMenuBar extends JMenuBar {
     menuView  = new JMenu("View");
     menuViewActive = new JMenu("Active pane");
     menuTools = new JMenu("Tools");
-    menuSEGY  = new JMenu("Segy");
+    menuSEGY  = new JMenu("Segy/SU-Setup");
     menuHelp  = new JMenu("Help");
 
     menuOpen    = new JMenuItem("Open...");
@@ -157,13 +157,13 @@ public class csMenuBar extends JMenuBar {
     menuColorMaps.setToolTipText("Create/modify custom color maps...");
     
     menuOpenFiletype  = new JMenu("Open file");
-    menuOpenSegy    = new JMenuItem("Open SEG-Y file...");
+    menuOpenSegy    = new JMenuItem("Open SEG-Y file...check SEGY/SU-Setup options on menubar to make sure endian is correct!");
     menuOpenSegy.setToolTipText("Open SEG-Y file");
     menuOpenSegd    = new JMenuItem("Open SEG-D file...");
     menuOpenSegd.setToolTipText("Open SEG-D file");
     menuOpenRSF    = new JMenuItem("Open RSF file...");
     menuOpenRSF.setToolTipText("Open RSF (Seplib/Madagascar) file");
-    menuOpenSU    = new JMenuItem("Open SU file...");
+    menuOpenSU    = new JMenuItem("Open SU file...check SEGY/SU-Setup options on menubar to make sure endian is correct!");
     menuOpenSU.setToolTipText("Open SU file...");
     menuOpenCseis    = new JMenuItem("Open Seaseis file...");
     menuOpenCseis.setToolTipText("Open Seaseis (.cseis) file");
