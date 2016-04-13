@@ -48,7 +48,7 @@ import javax.swing.filechooser.FileNameExtensionFilter;
  * @author 2013 Felipe Punto
  */
 public class SeaView extends JFrame implements csFileMenuListener {
-  public static final String VERSION = "2.03";
+  public static final String VERSION = "2.05";
   public static final String PROPERTIES_FILE_NAME = "seisdisp_settings_"+VERSION+".txt";
   public static final String PROPERTIES_FREQ_FILE_NAME = "seisdisp_settings_freq_"+VERSION+".txt";
 
@@ -103,6 +103,8 @@ public class SeaView extends JFrame implements csFileMenuListener {
 //  private int myExportHeight;
 //  private int myExportWidth;
   
+  private boolean myShowFKVelocity;
+  private float myFKTraceSpacing;
   private boolean myShowAbsoluteTime;
   private boolean myIsRefreshFileOperation = false;
   private int myColorBitType;
@@ -154,6 +156,7 @@ public class SeaView extends JFrame implements csFileMenuListener {
     mySegyAttr = myProperties.segyAttr;
     myDockPaneManager = new csDockPaneManager( true );
     myDockPaneManager.resetWindowLayout( myProperties.windowLayout, false );
+    myDockPaneManager.setActivePaneFeedback( myProperties.showActivePaneFeedback );
     myDockPaneButtonSelection = new csDockPaneButtonSelection();
     myDockPaneButtonSelection.scrollbars = false;
     mySeisPaneManager = new csSeisPaneManager( this, myProperties.annAttr );
@@ -170,7 +173,8 @@ public class SeaView extends JFrame implements csFileMenuListener {
     setJMenuBar( myMenuBar );
    
     myShowAbsoluteTime  = false;
-    
+    myShowFKVelocity      = false;
+    myFKTraceSpacing = 1.0f;    
     getContentPane().add( myToolBarLeft, BorderLayout.WEST );
     getContentPane().add( myToolBarTop, BorderLayout.NORTH );
     getContentPane().add( myDockPaneManager, BorderLayout.CENTER );
@@ -436,6 +440,10 @@ public class SeaView extends JFrame implements csFileMenuListener {
       myProperties.showFilename = showFilename;
       mySeisPaneManager.setShowFilenameInView( showFilename, (csSeisPaneBundle)myDockPaneManager.getActivePanel() );
     }
+  }
+  public void setShowActivePaneFeedback( boolean showActivePaneFeedback ) {
+    myProperties.showActivePaneFeedback = showActivePaneFeedback;
+    myDockPaneManager.setActivePaneFeedback(showActivePaneFeedback);
   }
   /**
    * Manage custom color maps, i.e. create, delete, edit custom color maps.
@@ -739,6 +747,13 @@ public class SeaView extends JFrame implements csFileMenuListener {
   public void createSnapShot( boolean includeSideLabels ) {
     if( mySeisPaneManager.getNumBundles() == 0 ) return;
     csSeisPaneBundle bundle = (csSeisPaneBundle)myDockPaneManager.getActivePanel();
+    if( bundle == null ) {
+      JOptionPane.showMessageDialog( this,
+          "No seismic pane selected/active. ...this is likely a SeaView bug.\n" +
+          "Click on top bar of seismic pane to select and repeat snapshot",
+          "Select seismic pane", JOptionPane.INFORMATION_MESSAGE );
+      return;
+    }
     BufferedImage image = mySeisPaneManager.createSnapShot( includeSideLabels, bundle );
     if( mySnapShotFrame == null ) {
       mySnapShotFrame = new csSnapShotFrame(this,cseis.resources.csResources.getIcon("seaview_icon_smooth.png"));
@@ -1094,6 +1109,7 @@ public class SeaView extends JFrame implements csFileMenuListener {
    */
   public synchronized boolean readData( csISeismicReader reader, String filenamePath, int fileFormat, boolean openInNewPane ) {
     csSeisPaneBundle bundle = null;
+    boolean renameActivePane = true;
     for( int ibundle = 0; ibundle < mySeisPaneManager.getNumBundles(); ibundle++ ) {
       if( filenamePath.compareTo(mySeisPaneManager.getBundle(ibundle).getFilenamePath()) == 0 ) {
         int option = JOptionPane.YES_OPTION;
@@ -1105,6 +1121,18 @@ public class SeaView extends JFrame implements csFileMenuListener {
         }
         if( option == JOptionPane.YES_OPTION ) {
           bundle = mySeisPaneManager.getBundle(ibundle);
+          csSeisPaneBundle bundleActive = (csSeisPaneBundle)myDockPaneManager.getActivePanel();
+          if( !bundleActive.equals(bundle) ) {
+            // Bundle which is to be updated is currently not active: Do not rename active bundle to avoid a name mixup
+            renameActivePane = false;
+          }
+          if( myDockPaneManager.getState( bundle ) == csDockPaneManager.STATE_HIDDEN ) {
+//            System.out.println("State of bundle is HIDDEN");
+//            myDockPaneManager.changeDocking( bundle, true );
+          }
+          else {
+//            System.out.println("State of bundle is DOCKED");
+          }
         }
         else { //if( option == JOptionPane.NO_OPTION ) {
           return false;
@@ -1114,8 +1142,8 @@ public class SeaView extends JFrame implements csFileMenuListener {
     if( bundle == null && !openInNewPane ) {
       bundle = (csSeisPaneBundle)myDockPaneManager.getActivePanel();
     }
-    readSeismicBundle( bundle, reader, filenamePath, fileFormat, SeaView.MOVE_OPTION_SELECTION, true );
-    
+    readSeismicBundle( bundle, reader, filenamePath, fileFormat, SeaView.MOVE_OPTION_SELECTION, true, renameActivePane );
+     
     return true;
   }
   /**
@@ -1125,7 +1153,7 @@ public class SeaView extends JFrame implements csFileMenuListener {
    * @param moveOption The 'move' option defines which traces to read in.
    */
   private void readSeismicBundle( csSeisPaneBundle bundle, int moveOption ) {
-    readSeismicBundle( bundle, null, null, bundle.getFileFormat(), moveOption, false );
+    readSeismicBundle( bundle, null, null, bundle.getFileFormat(), moveOption, false, true );
   }
   /**
    * Read seismic bundle.
@@ -1136,9 +1164,10 @@ public class SeaView extends JFrame implements csFileMenuListener {
    * @param moveOption The 'move' option defines which traces to read in.
    * @param reinitializeReader Pass 'true' if the reader object shall be re-initialized before read operation.
    *                           This needs to be done if the file must be re-opened before reading (=refreshed).
+   * @param renameActivePane   Pass 'true' if the active (dock) pane shall be renamed if necessary.
    */
-  private void readSeismicBundle( csSeisPaneBundle bundle, csISeismicReader reader,
-          String filenamePath, int fileFormat, int moveOption, boolean reinitializeReader ) {
+   private void readSeismicBundle( csSeisPaneBundle bundle, csISeismicReader reader,
+          String filenamePath, int fileFormat, int moveOption, boolean reinitializeReader, boolean renameActivePane ) {
     if( myIsReadProcessOngoing ) return;
     myIsReadProcessOngoing = true;
     boolean resetScalar = !myIsScalarLocked;
@@ -1175,7 +1204,8 @@ public class SeaView extends JFrame implements csFileMenuListener {
         // Reset bundle and dock pane titles if necessary (in case different data set is read into pane)
         bundle.resetFilename( filename.filename );
         setTitle( filename.filenamePath );
-        myDockPaneManager.resetActiveTitle( filename.filename, filename.filenamePath );
+//        myDockPaneManager.resetActiveTitle( filename.filename, filename.filenamePath );
+        if( renameActivePane ) myDockPaneManager.resetActiveTitle( filename.filename, filename.filenamePath );
       }
     }
     if( reinitializeReader ) bundle.initializeReader( reader, filenamePath, fileFormat );
@@ -1287,6 +1317,10 @@ public class SeaView extends JFrame implements csFileMenuListener {
         if( myShowAbsoluteTime ) {
           text += "   Date: " + computeAbsoluteTime( sampleInfo.time_samp1_ms, sampleInfo.info.time );
         }
+        if( myShowFKVelocity ) {
+          float fkVelocity = bundle.computeFKVelocity( (float)sampleInfo.info.traceDouble, (float)sampleInfo.info.time, myFKTraceSpacing );
+          if( fkVelocity >= 0 ) text += "   FK velocity: " + fkVelocity;
+        }
         text += "   Amplitude: " + amplitudeToString( sampleInfo.info.amplitude );
         myStatusBar.setText( text );
         if( bundle.isSynced() &&  mySeisPaneManager.isCrosshairSet() ) {
@@ -1298,7 +1332,7 @@ public class SeaView extends JFrame implements csFileMenuListener {
   }
   /**
    * Set mouse mode. Applies to all seismic bundles/panes. The mouse mode determines what functionality is
-   * avaiable on mouse clicks and moves in the seismic views. Mouse modes are indicated by different mouse
+   * available on mouse clicks and moves in the seismic views. Mouse modes are indicated by different mouse
    * cursors.
    * @param mouseMode Mouse modes include csMouseModes.NO_MODE, csMouseModes.ZOOM_MODE etc.
    * @param button The button which triggered the mouse mode change.
@@ -1314,13 +1348,6 @@ public class SeaView extends JFrame implements csFileMenuListener {
       myMouseMode = csMouseModes.NO_MODE;
     }
     mySeisPaneManager.setMouseMode( myMouseMode );
-  }
-  /**
-   * Start picking mode. Applies to all seismic bundles/panes.
-   */
-  public void setupPickingMode() {
-    csPickingDialog dialog = new csPickingDialog(this);
-    dialog.setVisible(true);
   }
   /**
    * Implementation of csFileMenuListener interface.
@@ -1367,7 +1394,16 @@ public class SeaView extends JFrame implements csFileMenuListener {
   }
   //-----------------------------------------------------------------------------------------------------
   /**
-   * Quit SeaView application. Save anny unsaved changes to various SeaView properties and
+   * Show computed velocity - Only works for Fk spectrum
+   * @param doShow true if computed velocity shall be shown in status bar.
+   */
+  public void showVelocity( boolean doShow, float traceSpacing ) {
+    myShowFKVelocity = doShow;
+    myFKTraceSpacing = traceSpacing;
+  }
+//-----------------------------------------------------------------------------------------------------
+  /**
+   * Quit SeaView application. Save any unsaved changes to various SeaView properties and
    * default seismic display settings.
    */
   public void exitApplication() {
