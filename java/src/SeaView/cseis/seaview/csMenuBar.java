@@ -595,7 +595,8 @@ public class csMenuBar extends JMenuBar {
         dialog.setLogo( cseis.resources.csResources.getIcon("seaview_icon_smooth.png") );
         dialog.setAdditionalComments("Copyright (c) Colorado School of Mines, 2013\n" +
                 "All rights reserved.\n" +
-                "Based on SeaSeis, developed by Bjorn Olofsson.");
+                "Based on SeaSeis, developed by Bjorn Olofsson."
+		SeaView is a Seismic data reader and viewer);
         dialog.setVisible(true);
       }
     });
