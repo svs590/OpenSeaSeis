@@ -31,6 +31,7 @@ public class csPreferencesDialog extends JDialog {
   
   private JTextField myTextNumTraces;
   private JCheckBox  myBoxShowFilename;
+  private JCheckBox  myBoxShowActivePaneFeedback;
 
   private JButton myButtonApply;
   private JButton myButtonClose;
@@ -43,7 +44,9 @@ public class csPreferencesDialog extends JDialog {
     myTextNumTraces.setToolTipText("Number of traces to read in at once for new input files");
     myBoxShowFilename = new JCheckBox( "Show filename as label on seismic data", properties.showFilename );
     myBoxShowFilename.setToolTipText("Plot filename on top of seismic data");
-
+    myBoxShowActivePaneFeedback = new JCheckBox( "Show graphical feedback", properties.showActivePaneFeedback );
+    myBoxShowActivePaneFeedback.setToolTipText("<html>Highlight pane when selected as active<br><i>This may be slow when running SeaView on a remote computer</i></html>");
+    
     JPanel panelSet = new JPanel(new GridBagLayout());
     panelSet.setBorder( BorderFactory.createCompoundBorder(
         BorderFactory.createTitledBorder("Set preferences"),
@@ -58,7 +61,10 @@ public class csPreferencesDialog extends JDialog {
         1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
         GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
     panelSet.add( myBoxShowFilename, new GridBagConstraints(
-        0, yp, 2, 1, 1.0, 0.0, GridBagConstraints.CENTER,
+        0, yp++, 2, 1, 1.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.NONE, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
+    panelSet.add( myBoxShowActivePaneFeedback, new GridBagConstraints(
+        0, yp, 2, 1, 1.0, 0.0, GridBagConstraints.WEST,
         GridBagConstraints.NONE, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
 
     myButtonApply = new JButton("Apply");
@@ -123,6 +129,8 @@ public class csPreferencesDialog extends JDialog {
     }
     boolean showFilename = myBoxShowFilename.isSelected();
     mySeaView.setShowFilename( showFilename );
+    boolean showActivePaneFeedback = myBoxShowActivePaneFeedback.isSelected();
+    mySeaView.setShowActivePaneFeedback( showActivePaneFeedback );
     return true;
   }
 }
