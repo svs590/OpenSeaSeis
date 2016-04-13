@@ -157,24 +157,8 @@ public class csMenuBar extends JMenuBar {
     menuColorMaps.setToolTipText("Create/modify custom color maps...");
     
     menuOpenFiletype  = new JMenu("Open file");
-<<<<<<< HEAD
     menuOpenSegy    = new JMenuItem("Open SEG-Y file...check SEGY/SU-Setup options on menubar to make sure endian is correct!");
     menuOpenSegy.setToolTipText("Open SEG-Y file");
-=======
-    menuOpenSegy    = new JMenuItem("Open SEG-Y file...");
-    menuOpenSegy.setToolTipText("Open SEG-Y file...check SEGY/SU-Setup options on menubar to make sure endian is correct!");
->>>>>>> master
-    menuOpenSegd    = new JMenuItem("Open SEG-D file...");
-    menuOpenSegd.setToolTipText("Open SEG-D file");
-    menuOpenRSF    = new JMenuItem("Open RSF file...");
-    menuOpenRSF.setToolTipText("Open RSF (Seplib/Madagascar) file");
-<<<<<<< HEAD
-    menuOpenSU    = new JMenuItem("Open SU file...check SEGY/SU-Setup options on menubar to make sure endian is correct!");
-    menuOpenSU.setToolTipText("Open SU file...");
-=======
-    menuOpenSU    = new JMenuItem("Open SU file...");
-    menuOpenSU.setToolTipText("Open SU File...check SEGY/SU-Setup options on menubar to make sure endian is correct! ");
->>>>>>> master
     menuOpenCseis    = new JMenuItem("Open Seaseis file...");
     menuOpenCseis.setToolTipText("Open Seaseis (.cseis) file");
     menuOpenASCII    = new JMenuItem("Open ASCII file...");
@@ -689,8 +673,7 @@ public class csMenuBar extends JMenuBar {
         dialog.setLogo( cseis.resources.csResources.getIcon("seaview_icon_smooth.png") );
         dialog.setAdditionalComments("Copyright (c) Colorado School of Mines, 2015\n" +
                 "All rights reserved.\n" +
-                "Based on SeaSeis, developed by Bjorn Olofsson."
-		SeaView is a Seismic data reader and viewer);
+                "Based on SeaSeis, developed by Bjorn Olofsson.");
         dialog.setVisible(true);
       }
     });
