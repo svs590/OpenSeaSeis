@@ -5,11 +5,12 @@
 package cseis.test;
 
 import cseis.graph.*;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
-public class TestGraph2D extends JFrame implements MouseListener, MouseMotionListener {
+public class TestGraphMulti2D extends JFrame implements MouseListener, MouseMotionListener {
   private csGraph2D myGraph;
   private csGraph2D myGraphVert;
   private csGraph2D myGraphHorz;
@@ -30,8 +31,8 @@ public class TestGraph2D extends JFrame implements MouseListener, MouseMotionLis
   csGraph2D myGraphSea;
   csGraphPane myGraphPane;
 
-  TestGraph2D() {
-    super("Test graph");
+  TestGraphMulti2D() {
+    super("Test multi graph");
 
     myScrollPaneVert = new JScrollPane(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
     myScrollPaneHorz = new JScrollPane(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
@@ -48,8 +49,8 @@ public class TestGraph2D extends JFrame implements MouseListener, MouseMotionLis
 //    myGraph.setGraphAttributes(graphAttr);
 //    myGraph.setFixedDim(false, false, 100, 100);
     myIsMouseDragged = false;
-    JButton bAdd = new JButton("+");
-    JButton bAddVert = new JButton("|||");
+    JButton bAdd1 = new JButton("1");
+    JButton bAdd2 = new JButton("2");
     JButton bAddHorz = new JButton("---");
     JButton bAddSea = new JButton("sss");
     JButton bFixX = new JButton("x");
@@ -109,39 +110,21 @@ public class TestGraph2D extends JFrame implements MouseListener, MouseMotionLis
         myPaneSea.setNewSize();
       }
     });
-    bAdd.addActionListener(new ActionListener() {
+    bAdd1.addActionListener(new ActionListener() {
       @Override
       public void actionPerformed(ActionEvent e) {
-        addCurve(FLAG_NEW);
+        addCurve1();
       }
     });
-    bAddVert.addActionListener(new ActionListener() {
+    bAdd2.addActionListener(new ActionListener() {
       @Override
       public void actionPerformed(ActionEvent e) {
-        addCurve(FLAG_VERT);
-      }
-    });
-    bAddHorz.addActionListener(new ActionListener() {
-      @Override
-      public void actionPerformed(ActionEvent e) {
-        addCurve(FLAG_HORZ);
-      }
-    });
-    bAddSea.addActionListener(new ActionListener() {
-      @Override
-      public void actionPerformed(ActionEvent e) {
-        addCurve(FLAG_SEA);
+        addCurve2();
       }
     });
     JToolBar toolBar = new JToolBar();
-    toolBar.add(bAdd);
-    toolBar.add(bAddVert);
-    toolBar.add(bAddHorz);
-    toolBar.add(bAddSea);
-    toolBar.add(bFixX);
-    toolBar.add(bFixY);
-    toolBar.add(bFixXY);
-    toolBar.add(bFixNONE);
+    toolBar.add(bAdd1);
+    toolBar.add(bAdd2);
 
 //    myGraph.setFixedDim( false,false,200,200 );
 //    myGraphVert.setFixedDim( false,false,200,200 );
@@ -150,7 +133,7 @@ public class TestGraph2D extends JFrame implements MouseListener, MouseMotionLis
 //    myScrollPaneHorz.setViewportView(myGraphHorz);
 
 
-//    getContentPane().add( toolBar, BorderLayout.NORTH );
+    getContentPane().add( toolBar, BorderLayout.NORTH );
 //    getContentPane().add( myScrollPaneVert, BorderLayout.EAST );
 //   getContentPane().add( myScrollPaneHorz, BorderLayout.SOUTH );
 //    getContentPane().add( myPaneVert, BorderLayout.EAST );
@@ -174,9 +157,11 @@ public class TestGraph2D extends JFrame implements MouseListener, MouseMotionLis
 //        myGraph.setNewVariableDim(getSize().width,getSize().height);
       }
     });
-    addCurve( FLAG_NEW );
+//    addCurve1();
+//    addCurve2();
   }
-  public void addCurve( int flag ) {
+  public void addCurve1() {
+    int curveId = 0;
     float[] valuesX = {-2,1,2,3,4,5,6,7,8,9,10};
     float[] valuesY = {-2,3,5,1,9,7,4,5,7,4,3};
     for( int i = 0; i < valuesX.length; i++ ) {
@@ -184,26 +169,33 @@ public class TestGraph2D extends JFrame implements MouseListener, MouseMotionLis
       valuesY[i] *= 50;
     }
     try {
-      if( flag == FLAG_NEW ) {
-//        myGraph.getGraphAttributes().graphPadding = 0;
-        myGraph.addCurve(flag,valuesX, valuesY, null);
-      }
-      else if(flag == FLAG_VERT) {
-        myGraphVert.addCurve(flag,valuesX, valuesY, null);
-      }
-      else if(flag == FLAG_HORZ) {
-        myGraphHorz.addCurve(flag,valuesX, valuesY, null);
-      }
-      else if(flag == FLAG_SEA) {
-        myGraphSea.addCurve(flag,valuesX, valuesY, null);
-      }
+      myGraph.addCurve(curveId,valuesX, valuesY, null);
+    }
+    catch( Exception e ) {
+      e.printStackTrace();
+    }
+  }
+  public void addCurve2() {
+    int curveId = 1;
+    csCurveAttributes attr = new csCurveAttributes();
+    attr.lineColor = Color.blue;
+    attr.lineSize = 10;
+    attr.filledType = csCurveAttributes.FILLED_TYPE_NONE;
+    float[] valuesX = {-2,1,2,3,4,5,6,7,8,9,10};
+    float[] valuesY = {2,-3,-5,-2,2,5,8,9,3,-1,-1};
+    for( int i = 0; i < valuesX.length; i++ ) {
+      valuesX[i] *= 0.02;
+      valuesY[i] *= 50;
+    }
+    try {
+      myGraph.addCurve( curveId, valuesX, valuesY, attr);
     }
     catch( Exception e ) {
       e.printStackTrace();
     }
   }
   public static void main( String[] args ) {
-    TestGraph2D t = new TestGraph2D();
+    TestGraphMulti2D t = new TestGraphMulti2D();
     t.setVisible(true);
   }
   private void reset() {

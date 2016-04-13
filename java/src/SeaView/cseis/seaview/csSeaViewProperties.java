@@ -34,6 +34,7 @@ public class csSeaViewProperties {
   public csAnnotationAttributes annAttr;
   public int numTraces;
   public boolean showFilename;
+  public boolean showActivePaneFeedback;
   public int colorBitType;
   
   private File myPropertiesFile;
@@ -48,6 +49,7 @@ public class csSeaViewProperties {
   public static final String PROPERTY_autoScaleSEGY    = "autoScaleSEGY";
   public static final String PROPERTY_numTraces        = "numTraces";
   public static final String PROPERTY_showFilename     = "showFilename";
+  public static final String PROPERTY_showActivePaneFeedback = "showActivePaneFeedback";
 
   public static final String PROPERTY_windowLayout     = "windowLayout";
   
@@ -73,7 +75,8 @@ public class csSeaViewProperties {
     colorBitType   = csColorMap.COLOR_MAP_TYPE_32BIT;
     
     numTraces = csTraceSelectionParam.NUM_TRACES_DEFAULT;
-    showFilename = false;
+    showFilename = true;
+    showActivePaneFeedback = true;
     segyAttr = new csSegyAttr();
     annAttr = new csAnnotationAttributes();
 
@@ -166,6 +169,8 @@ public class csSeaViewProperties {
     if( value != null ) numTraces  = Integer.parseInt( value );
     value = p.getProperty( PROPERTY_showFilename );
     if( value != null ) showFilename = Boolean.parseBoolean( value );
+    value = p.getProperty( PROPERTY_showActivePaneFeedback );
+    if( value != null ) showActivePaneFeedback = Boolean.parseBoolean( value );
     
     propertiesDirectoryPath = p.getProperty( PROPERTY_propertyDir );
     dataDirectoryPath = p.getProperty( PROPERTY_dataDir );
@@ -193,6 +198,7 @@ public class csSeaViewProperties {
 
     p.setProperty( PROPERTY_numTraces, numTraces+"" );
     p.setProperty( PROPERTY_showFilename, showFilename+"" );
+    p.setProperty( PROPERTY_showActivePaneFeedback, showActivePaneFeedback+"" );
     
     p.store(new FileOutputStream( myPropertiesFile ), null);
   }

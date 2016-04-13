@@ -17,7 +17,6 @@ public class csNativeFFTTransform {
       double[] samples,
       int numSamples );
 
-  protected long myNativePtr = 0;
   private int myNumSamplesOrig;
   private int myNumFFTSamples;
 
@@ -49,7 +48,7 @@ public class csNativeFFTTransform {
     if( samples.length != myNumSamplesOrig ) {
       return null;
     }
-    
+//    vars->fftTool->lowPass( samplesInOut, vars->order, vars->cutoffLow, (vars->output == OUTPUT_IMPULSE) );
     int numSamplesHalf = myNumFFTSamples/2;
     csFFTObject fftObject = new csFFTObject( numSamplesHalf );
     double[] samplesDouble = new double[myNumFFTSamples];

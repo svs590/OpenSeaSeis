@@ -22,14 +22,7 @@ public class csGraphPopupMenu extends JPopupMenu {
     super();
     myGraph = graph;
     myShowGraphSettingsAction = new csShowGraphSettingsAction();
-//    JMenuItem itemTmp1 = new JMenuItem("Dummy1...");
-//    JMenuItem itemTmp2 = new JMenuItem("Dummy2...");
-//    itemTmp1.setEnabled(false);
-//    itemTmp2.setEnabled(false);
     
-//    add(itemTmp1);
-//    add(itemTmp2);
-//    addSeparator();
     add( myShowGraphSettingsAction );
   }
   public csShowGraphSettingsAction getGraphSettingsAction() {
@@ -45,5 +38,4 @@ public class csGraphPopupMenu extends JPopupMenu {
     }
   }
 }
-
 

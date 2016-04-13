@@ -29,6 +29,8 @@ import cseis.jni.csVirtualSeismicReader;
 import cseis.processing.csIProcessing;
 import cseis.processing.csIProcessingSetupListener;
 import cseis.processing.csProcessingAGC;
+import cseis.processing.csProcessingFilter;
+import cseis.processing.csProcessingInterpolation;
 import cseis.processing.csProcessingDCRemoval;
 import cseis.processing.csProcessingDialog;
 import cseis.processing.csProcessingOverlay;
@@ -62,10 +64,10 @@ import javax.swing.JSplitPane;
  */
 public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
         csISampleInfoListener, csIRubberBandListener, csIStoppable,
-        csITraceHeaderScanListener, csISelectionNotifier {
+        csITraceHeaderScanListener, csISelectionNotifier, csIPaintDialogListener, csIPickDialogListener {
   private static int id_counter = 0;
   /// Number of traces to read before progress bar is refreshed:
-  private static int REFRESH_FREQUENCY = 20;
+  private static final int REFRESH_FREQUENCY = 20;
   
   public static int OPERATION_SUBTRACT = 0; // Do not change number values
   public static int OPERATION_ADD      = 1;
@@ -108,9 +110,14 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
   private csAnnotationDialog myAnnotationDialog;
   private ArrayList<csIProcessing> myProcessingSteps;
   private csProcessingOverlay myProcessingOverlay;
+  private csPaintOverlay myPaintOverlay;
+  private csPaintDialog myPaintDialog;
+  private csPickingDialog myPickingDialog;
+  private csPickOverlay myPickOverlay;
 
   private int myHdrIndexTimeSamp1;
   private int myHdrIndexTimeSamp1_us;
+  private int myHdrIndexWavenumber;
   private boolean myIsFrequencyDomain;
   /// File format: CSEIS, SEGY etc
   private int myFileFormat;
@@ -141,11 +148,16 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
     seisView.getEventHandler().addSampleInfoListener( this );
     seisView.getEventHandler().addRubberBandListener(this);
     myScanHdrInfoList = new ArrayList<csScanHeaderInfo>();
+    myHdrIndexWavenumber = -1;
 
     myCurrentScanHdrInfoIndex = -1;
     myIsSynced = false;
     myProcessingSteps = new ArrayList<csIProcessing>();
     myProcessingOverlay = new csProcessingOverlay("");
+    myPaintOverlay = null;
+    myPickOverlay  = null;
+    myPaintDialog = null;
+    myPickingDialog = null;
     
     myTraceHeaderScan = null;
 
@@ -207,6 +219,12 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
       else if( name.compareTo( csProcessingDCRemoval.NAME ) == 0 ) {
         proc = new csProcessingDCRemoval();
       }
+      else if( name.compareTo( csProcessingFilter.NAME ) == 0 ) {
+        proc = new csProcessingFilter( 2, 12, 220, 200, getNumSamples(), getSampleInt() );
+      }
+      else if( name.compareTo( csProcessingInterpolation.NAME ) == 0 ) {
+        proc = new csProcessingInterpolation( 2, getSampleInt() );
+      }
       else if( name.compareTo( csProcessingTest.NAME ) == 0 ) {
         proc = new csProcessingTest();
       }
@@ -241,6 +259,7 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
               applyProcessingToData( true );
             }
             catch( Exception e ) {
+              e.printStackTrace();
             }
             dialog.stopProcessing();
           }
@@ -447,11 +466,81 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
     }
     myOverlayDialog.setVisible( true );
   }
+  @Override
+  public void closePaintDialog() {
+//    if( myPaintDialog != null ) myPaintDialog.setVisible(false);
+//    if( myPaintOverlay != null ) myPaintOverlay.deactivate();
+//    if( seisView.getMouseMode() == csMouseModes.PAINT_MODE ) {
+//      seisView.setMouseMode( csMouseModes.NO_MODE );
+//    }
+    popupMenu.setPaintMode( false );
+    setPaintMode( false );
+  }
+  @Override
+  public void clearPaintOverlay() {
+    if( myPaintOverlay != null ) myPaintOverlay.clearOverlay();
+  }
+  @Override
+  public void updatePaintOverlay( int lineSize, Color lineColor, int pointSize, Color pointColor ) {
+    if( myPaintOverlay != null ) {
+      myPaintOverlay.update( lineSize, lineColor, pointSize, pointColor );
+    }
+  }
+  @Override
+  public void closePickDialog() {
+    popupMenu.setPickMode( false );
+    setPickMode( false );
+  }
+  @Override
+  public void updatePicks() {
+    seisView.repaint();
+  }
+  @Override
+  public void setPicksFromHeader( csHeaderDef hdrDef ) {
+    int headerIndex = getTraceHeaderIndex( hdrDef.name );
+    Float[] picks = new Float[seisView.getTraceBuffer().numTraces()];
+    csISeismicTraceBuffer traceBuffer = seisView.getTraceBuffer();
+    for( int itrc = 0; itrc < picks.length; itrc++ ) {
+      picks[itrc] = traceBuffer.headerValues(itrc)[headerIndex].floatValue();
+    }
+    myPickOverlay.setActivePicks( picks );
+    seisView.repaint();
+  }
+  public void setPaintMode( boolean doSet ) {
+    if( doSet ) {
+      if( myPaintOverlay == null ) myPaintOverlay = new csPaintOverlay( seisView );
+      seisView.addOverlay( myPaintOverlay );
+      myPaintOverlay.activate();
+      seisView.setMouseMode( csMouseModes.PAINT_MODE );
+      if( myPaintDialog == null ) myPaintDialog = new csPaintDialog( myParentFrame, this );
+      myPaintDialog.setVisible(true);
+    }
+    else {
+      if( myPaintDialog != null ) myPaintDialog.setVisible(false);
+      if( myPaintOverlay != null ) myPaintOverlay.deactivate();
+      seisView.setMouseMode( csMouseModes.NO_MODE );
+    }
+  }
+  public void setPickMode( boolean doSet ) {
+    if( doSet ) {
+      if( myPickOverlay == null ) myPickOverlay = new csPickOverlay( seisView );
+      seisView.addOverlay( myPickOverlay );
+      myPickOverlay.activate();
+      seisView.setMouseMode( csMouseModes.PICK_MODE );
+      if( myPickingDialog == null ) myPickingDialog = new csPickingDialog( myParentFrame, myPickOverlay, title, this, mySortedTraceHeaderDef );
+      myPickingDialog.setVisible(true);
+    }
+    else {
+      if( myPickingDialog != null ) myPickingDialog.setVisible(false);
+      if( myPickOverlay != null ) myPickOverlay.deactivate();
+      seisView.setMouseMode( csMouseModes.NO_MODE );
+    }
+  }
   public float getSampleInt() {
     if( myReader == null ) return 0;
     return myReader.sampleInt();
   }
-  public float getNumSamples() {
+  public int getNumSamples() {
     if( mySeismicTraceBuffer == null ) return 0;
     return mySeismicTraceBuffer.numSamples();
   }
@@ -751,7 +840,20 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
       }
     }
   }
-  @Override
+  public float computeFKVelocity( float traceDouble, float frequency, float traceSpacing ) {
+    float velocity = -1.0f;
+    if( myHdrIndexWavenumber >= 0 ) {
+      if( traceDouble < 0 ) traceDouble = 0.0f;
+      csHeader[] hdrValues0 = mySeismicTraceBuffer.headerValues( 0 );
+      csHeader[] hdrValues = mySeismicTraceBuffer.headerValues( (int)traceDouble );
+      if( myHdrIndexWavenumber < hdrValues.length ) {
+        float wavenumber = hdrValues[myHdrIndexWavenumber].floatValue() + ( traceDouble - (float)(int)traceDouble );
+        velocity = Math.abs( 2.0f * traceSpacing * frequency * ( hdrValues0[myHdrIndexWavenumber].floatValue() / wavenumber ) );
+      }
+    }
+    return velocity;
+  }
+ @Override
   public void rubberBandCompleted( csSampleInfo posStart, csSampleInfo posEnd ) {
     if( seisView.getMouseMode() == csMouseModes.ZOOM_MODE ) {
       seisPane.zoomArea( posStart, posEnd );
@@ -1195,6 +1297,7 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
               myTraceHeaderDef = new csHeaderDef[numHeaders];
               myHdrIndexTimeSamp1    = -1;
               myHdrIndexTimeSamp1_us = -1;
+              myHdrIndexWavenumber   = -1;
               for( int i = 0; i < numHeaders; i++ ) {
                 myTraceHeaderDef[i] = new csHeaderDef( myReader.headerName(i), myReader.headerDesc(i), myReader.headerType(i) );
                 if( myReader.headerName(i).equals("time_samp1") ) {
@@ -1203,6 +1306,9 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
                 else if( myReader.headerName(i).equals("time_samp1_us") ) {
                   myHdrIndexTimeSamp1_us = i;
                 }
+                else if( myReader.headerName(i).equals("k-wavenumber") || myReader.headerName(i).equals("k_wavenumber") ) {
+                  myHdrIndexWavenumber = i;
+                }              
               }
               mySortedTraceHeaderDef = new csHeaderDef[myTraceHeaderDef.length];
               for( int ihdr = 0; ihdr < myTraceHeaderDef.length; ihdr++ ) {

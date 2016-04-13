@@ -13,111 +13,95 @@ import java.awt.event.WindowEvent;
 import javax.swing.*;
 
 import cseis.general.csStandard;
+import java.util.Collection;
+import java.util.Iterator;
 
 /**
  * Dialog where graph settings can be changed.
  * @author Bjorn Olofsson
  */
- // ...work in progress
-public class csGraphDispDialog extends JDialog {
+public class csGraphDispDialog extends JDialog implements csIGraph2DListener {
   private static final int TEXT_MIN_WIDTH = 80;
   
   protected csGraphAttributes myAttr;
   
   // Text fields
-  private JTextField myTextInsetLeft;
-  private JTextField myTextInsetTop;
-  private JTextField myTextInsetRight;
-  private JTextField myTextInsetBottom;
-  private JTextField myTextMinAxisX;
-  private JTextField myTextMaxAxisX;
-  private JTextField myTextMinAxisY;
-  private JTextField myTextMaxAxisY;
+  private final JTextField myTextInset;
+  private final JTextField myTextMinAxisX;
+  private final JTextField myTextMaxAxisX;
+  private final JTextField myTextMinAxisY;
+  private final JTextField myTextMaxAxisY;
 
-  private JTextField myBorderSize;
-  private JTextField myBorderPadding;
-  private JTextField myInnerBorderSize;
-  private JTextField myInnerBorderPadding;
+  private final JTextField myBorderSize;
+  private final JTextField myBorderPadding;
+  private final JTextField myInnerBorderSize;
+  private final JTextField myInnerBorderPadding;
 
-  private JTextField myTextGridIncX;
-  private JTextField myTextGridIncY;
-  private JTextField myTextMinorRatioX;
-  private JTextField myTextMinorRatioY;
+  private final JTextField myTextGridIncX;
+  private final JTextField myTextGridIncY;
+  private final JTextField myTextMinorRatioX;
+  private final JTextField myTextMinorRatioY;
 
-  private JTextField myGraphTitle;
-  private JTextField myXAxisLabel;
-  private JTextField myYAxisLabel;
-  private JTextField myTextRefValueY;
+  private final JTextField myGraphTitle;
+  private final JTextField myXAxisLabel;
+  private final JTextField myYAxisLabel;
+  private final JTextField myTextRefValueY;
 
-  private JCheckBox myAutoScaleAxes;
-  private JCheckBox myCentreAxisX;
-  private JCheckBox myCentreAxisY;
+  private final JCheckBox myAutoScaleAxes;
+  private final JCheckBox myCentreAxisX;
+  private final JCheckBox myCentreAxisY;
 
-  private JCheckBox myShowBorder;
-  private JCheckBox myShowInnerBorder;
-  private JCheckBox myShowGrid;
-  private JCheckBox myShowAxisX;
-  private JCheckBox myShowAxisY;
-  private JCheckBox myShowAxisZero;
-  private JCheckBox myShowXTics;
-  private JCheckBox myShowYTics;
-  private JCheckBox myShowAnnotationX;
-  private JCheckBox myShowAnnotationY;
+  private final JCheckBox myShowBorder;
+  private final JCheckBox myShowInnerBorder;
+  private final JCheckBox myShowGrid;
+  private final JCheckBox myShowAxisX;
+  private final JCheckBox myShowAxisY;
+  private final JCheckBox myShowAxisZero;
+  private final JCheckBox myShowXTics;
+  private final JCheckBox myShowYTics;
+  private final JCheckBox myShowAnnotationX;
+  private final JCheckBox myShowAnnotationY;
 
-  private JRadioButton myButtonYLinearScale;
-  private JRadioButton myButtonYLogScale;
-  private JRadioButton myButtonXLinearScale;
-  private JRadioButton myButtonXLogScale;
-  private JLabel myLabelXAxisScale;
-  private JLabel myLabelYAxisScale;
+  private final JRadioButton myButtonYLinearScale;
+  private final JRadioButton myButtonYLogScale;
+  private final JRadioButton myButtonXLinearScale;
+  private final JRadioButton myButtonXLogScale;
+  private final JLabel myLabelXAxisScale;
+  private final JLabel myLabelYAxisScale;
 
-  private JCheckBox myIsTrueScale;
-  private JCheckBox myUseRefValueY;
+  private final JCheckBox myIsTrueScale;
 
-  private JLabel myLabelInsetLeft;
-  private JLabel myLabelInsetTop;
-  private JLabel myLabelInsetRight;
-  private JLabel myLabelInsetBottom;
-  private JLabel myLabelMinAxisX;
-  private JLabel myLabelMaxAxisX;
-  private JLabel myLabelMinAxisY;
-  private JLabel myLabelMaxAxisY;
-  private JLabel myLabelGridIncX;
-  private JLabel myLabelGridIncY;
-  private JLabel myLabelMinorRatioX;
-  private JLabel myLabelMinorRatioY;
-
-  private JLabel myLabelBorderSize;
-  private JLabel myLabelBorderPadding;
-  private JLabel myLabelInnerBorderSize;
-  private JLabel myLabelInnerBorderPadding;
-
-  private JLabel myLabelGraphTitle;
-  private JLabel myLabelXAxisLabel;
-  private JLabel myLabelYAxisLabel;
+//  private final JLabel myLabelMinAxisX;
+//  private final JLabel myLabelMaxAxisX;
+//  private final JLabel myLabelMinAxisY;
+//  private final JLabel myLabelMaxAxisY;
+//  private final JLabel myLabelGraphTitle;
   
-  private csGraph2D myGraph;
+  private final csGraph2D myGraph;
+  private final JTabbedPane myPanelCurves;
+
+  
+  private JCheckBox myUseRefValueY;
   private boolean myIsUpdating;
 
   //----------------------
-  private JButton myButtonOK;
-  private JButton myButtonApply;
-  private JButton myButtonCancel;
+  private final JButton myButtonOK;
+  private final JButton myButtonApply;
+  private final JButton myButtonCancel;
   
   public csGraphDispDialog( csGraph2D graph ) {
     super.setTitle( "Graph settings" );
     super.setModal( false );
     
     myGraph = graph;
+    myGraph.addGraph2DListener( this);
+
     myAttr = myGraph.getGraphAttributes();
     myIsUpdating = false;
     
     // Text fields
-    myTextInsetLeft = new JTextField(" ");
+    myTextInset = new JTextField(" ");
     myTextGridIncX = new JTextField(" ");
-    myTextInsetTop = new JTextField(" ");
-    myTextInsetRight = new JTextField(" ");
-    myTextInsetBottom = new JTextField(" ");
     myTextMinAxisX = new JTextField(" ");
     myTextMaxAxisX = new JTextField(" ");
     myTextMinAxisY = new JTextField(" ");
@@ -137,13 +121,10 @@ public class csGraphDispDialog extends JDialog {
     myYAxisLabel = new JTextField(" ");
     myTextRefValueY = new JTextField(" ");
 
-    int height = myTextInsetLeft.getPreferredSize().height;
-    myTextInsetLeft.setPreferredSize( new Dimension( TEXT_MIN_WIDTH, height ) );
+    int height = myTextInset.getPreferredSize().height;
+    myTextInset.setPreferredSize( new Dimension( TEXT_MIN_WIDTH, height ) );
     myTextGridIncX.setPreferredSize( new Dimension( TEXT_MIN_WIDTH, height ) );
 
-    myTextInsetTop.setPreferredSize( new Dimension( TEXT_MIN_WIDTH, height ) );
-    myTextInsetRight.setPreferredSize( new Dimension( TEXT_MIN_WIDTH, height ) );
-    myTextInsetBottom.setPreferredSize( new Dimension( TEXT_MIN_WIDTH, height ) );
     myTextMinAxisX.setPreferredSize( new Dimension( TEXT_MIN_WIDTH, height ) );
     myTextMinAxisY.setPreferredSize( new Dimension( TEXT_MIN_WIDTH, height ) );
     myTextMaxAxisX.setPreferredSize( new Dimension( TEXT_MIN_WIDTH, height ) );
@@ -163,16 +144,18 @@ public class csGraphDispDialog extends JDialog {
     myAutoScaleAxes   = new JCheckBox("Auto scale",myAttr.autoScaleAxes);
     myCentreAxisX     = new JCheckBox("Centre X axis",myAttr.centreAxisX);
     myCentreAxisY     = new JCheckBox("Centre Y axis",myAttr.centreAxisY);
-    myShowAxisX       = new JCheckBox("Show X axis",myAttr.showAxisX);
-    myShowAxisY       = new JCheckBox("Show Y axis",myAttr.showAxisY);
-    myShowAxisZero    = new JCheckBox("Show zero axis",myAttr.showZeroAxis);
-    myShowXTics       = new JCheckBox("Show X tics",myAttr.showXTics);
-    myShowYTics       = new JCheckBox("Show Y tics",myAttr.showYTics);
-    myShowAnnotationX = new JCheckBox("Show X axis annotation",myAttr.showAxisXAnnotation);
-    myShowAnnotationY = new JCheckBox("Show Y axis annotation",myAttr.showAxisYAnnotation);
-    myShowBorder      = new JCheckBox("Show border",myAttr.showBorder);
-    myShowInnerBorder = new JCheckBox("Show inner border",myAttr.showInnerBorder);
-    myShowGrid        = new JCheckBox("Show grid",myAttr.showGrid);
+    // Axes setup
+    myShowAxisX       = new JCheckBox("",myAttr.showAxisX);
+    myShowAxisY       = new JCheckBox("",myAttr.showAxisY);
+    myShowXTics       = new JCheckBox("",myAttr.showXTics);
+    myShowYTics       = new JCheckBox("",myAttr.showYTics);
+    myShowAnnotationX = new JCheckBox("",myAttr.showAxisXAnnotation);
+    myShowAnnotationY = new JCheckBox("",myAttr.showAxisYAnnotation);
+    // General settings
+    myShowAxisZero    = new JCheckBox("Zero axis",myAttr.showZeroAxis);
+    myShowBorder      = new JCheckBox("Outer border",myAttr.showBorder);
+    myShowInnerBorder = new JCheckBox("Inner border",myAttr.showInnerBorder);
+    myShowGrid        = new JCheckBox("Grid",myAttr.showGrid);
 
     myButtonYLinearScale  = new JRadioButton("Linear",myAttr.axisScaleY == csGraphAttributes.AXIS_SCALE_LINEAR);
     myButtonYLogScale  = new JRadioButton("Logarithmic",myAttr.axisScaleY == csGraphAttributes.AXIS_SCALE_LOG);
@@ -191,78 +174,28 @@ public class csGraphDispDialog extends JDialog {
     myUseRefValueY = new JCheckBox("Use ref value",myAttr.useRefValueY);
 
     // Labels
-    myLabelInsetLeft   = new JLabel("Left inset");
-    myLabelInsetTop    = new JLabel("Top inset");
-    myLabelInsetRight  = new JLabel("Right inset");
-    myLabelInsetBottom = new JLabel("Bottom inset");
-    myLabelMinAxisX = new JLabel("Min X value");
-    myLabelMaxAxisX = new JLabel("Max X value");
-    myLabelMinAxisY = new JLabel("Min Y value");
-    myLabelMaxAxisY = new JLabel("Max Y value");
-
-    myLabelGridIncX = new JLabel("Grid inc X (pixels)");
-    myLabelGridIncY = new JLabel("Grid inc Y (pixels)");
-    myLabelMinorRatioX = new JLabel("Min/maj tic ratio X");
-    myLabelMinorRatioY = new JLabel("Min/maj tic ratio Y");
-
-    myLabelBorderSize = new JLabel("Border size");
-    myLabelBorderPadding = new JLabel("Border padding");
-    myLabelInnerBorderSize = new JLabel("Inner border size");
-    myLabelInnerBorderPadding = new JLabel("Inner border padding");
-
-    myLabelGraphTitle = new JLabel("Title");
-    myLabelXAxisLabel = new JLabel("X label");
-    myLabelYAxisLabel = new JLabel("Y label");
+//    myLabelMinAxisX = new JLabel("Min X value");
+//    myLabelMaxAxisX = new JLabel("Max X value");
+//    myLabelMinAxisY = new JLabel("Min Y value");
+//    myLabelMaxAxisY = new JLabel("Max Y value");
+//    myLabelGraphTitle = new JLabel("Title");
 
     //=============================================================================
     // Creating panels
     //
-
-    JPanel panelCheck = new JPanel(new GridBagLayout());
-    panelCheck.setBorder( BorderFactory.createCompoundBorder(
-        BorderFactory.createTitledBorder("Settings 1"),
-        csStandard.INNER_EMPTY_BORDER ) );
-
-    JPanel panelText = new JPanel(new GridBagLayout());
-    panelText.setBorder( BorderFactory.createCompoundBorder(
-        BorderFactory.createTitledBorder("Settings 2"),
+    JPanel panelCurves = new JPanel(new GridBagLayout());
+    panelCurves.setBorder( BorderFactory.createCompoundBorder(
+        BorderFactory.createTitledBorder("Curve attributes"),
         csStandard.INNER_EMPTY_BORDER ) );
 
     JPanel panelOther = new JPanel(new GridBagLayout());
     panelOther.setBorder( BorderFactory.createCompoundBorder(
         BorderFactory.createTitledBorder("Settings 3"),
         csStandard.INNER_EMPTY_BORDER ) );
-
+    
     //--------------------------------------------------------------
     int yp = 0;
 
-    panelText.add( myLabelInsetLeft, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myTextInsetLeft, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-    panelText.add( myLabelInsetRight, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myTextInsetRight, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-    panelText.add( myLabelInsetTop, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myTextInsetTop, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-    panelText.add( myLabelInsetBottom, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myTextInsetBottom, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
 /*
     panelText.add( myLabelMinAxisX, new GridBagConstraints(
         0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
@@ -292,138 +225,157 @@ public class csGraphDispDialog extends JDialog {
         1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
         GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
 */
-    panelText.add( myLabelGridIncX, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myTextGridIncX, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-    panelText.add( myLabelGridIncY, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myTextGridIncY, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-
-    panelText.add( myLabelMinorRatioX, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myTextMinorRatioX, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-    panelText.add( myLabelMinorRatioY, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myTextMinorRatioY, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-    panelText.add( myLabelBorderSize, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myBorderSize, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-    panelText.add( myLabelBorderPadding, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myBorderPadding, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-    panelText.add( myLabelInnerBorderSize, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myInnerBorderSize, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-    panelText.add( myLabelInnerBorderPadding, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myInnerBorderPadding, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-    panelText.add( myLabelGraphTitle, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myGraphTitle, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-    panelText.add( myLabelXAxisLabel, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myXAxisLabel, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-    panelText.add( myLabelYAxisLabel, new GridBagConstraints(
-        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
-    panelText.add( myYAxisLabel, new GridBagConstraints(
-        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-    panelText.add( Box.createVerticalGlue(), new GridBagConstraints(
-        0, yp++, 2, 1, 0.0, 1.0, GridBagConstraints.WEST,
-        GridBagConstraints.VERTICAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
 
 //----------------------------------------------------------------------
+    JPanel panelAxes = new JPanel(new GridBagLayout());
+    panelAxes.setBorder( BorderFactory.createCompoundBorder(
+        BorderFactory.createTitledBorder("Axes setup"),
+        csStandard.INNER_EMPTY_BORDER ) );
+
     yp = 0;
-    panelCheck.add( myShowAxisX, new GridBagConstraints(
-        0, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
+    int xp = 0;
+    panelAxes.add( Box.createHorizontalGlue(), new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 10 ), 0, 0 ) );
+    panelAxes.add( new JLabel("Label"), new GridBagConstraints(
+        xp++, yp, 1, 1, 0.8, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 10 ), 0, 0 ) );
+    panelAxes.add( new JLabel("Axis"), new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 10 ), 0, 0 ) );
+    panelAxes.add( new JLabel("Tics"), new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelAxes.add( new JLabel("Increment"), new GridBagConstraints(
+        xp++, yp, 1, 1, 0.1, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelAxes.add( new JLabel("Min/maj ratio"), new GridBagConstraints(
+        xp++, yp, 1, 1, 0.1, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 10 ), 0, 0 ) );
+    panelAxes.add( new JLabel("Values"), new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
         GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-    panelCheck.add( myShowAxisY, new GridBagConstraints(
-        0, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
+    xp = 0;
+    yp += 1;
+    panelAxes.add( new JLabel("X:"), new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 10 ), 0, 0 ) );
+    panelAxes.add( myXAxisLabel, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.8, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 10 ), 0, 0 ) );
+    panelAxes.add( myShowAxisX, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 10 ), 0, 0 ) );
+    panelAxes.add( myShowXTics, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelAxes.add( myTextGridIncX, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.1, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelAxes.add( myTextMinorRatioX, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.1, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 10 ), 0, 0 ) );
+    panelAxes.add( myShowAnnotationX, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
         GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-    panelCheck.add( myShowXTics, new GridBagConstraints(
-        0, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-    panelCheck.add( myShowYTics, new GridBagConstraints(
-        0, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-    panelCheck.add( myShowAxisZero, new GridBagConstraints(
-        0, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-    panelCheck.add( myShowAnnotationX, new GridBagConstraints(
-        0, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-    panelCheck.add( myShowAnnotationY, new GridBagConstraints(
-        0, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-    panelCheck.add( myShowBorder, new GridBagConstraints(
-        0, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-    panelCheck.add( myShowInnerBorder, new GridBagConstraints(
-        0, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-    panelCheck.add( myShowGrid, new GridBagConstraints(
-        0, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
+    xp = 0;
+    yp += 1;
+    panelAxes.add( new JLabel("Y:"), new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 10 ), 0, 0 ) );
+    panelAxes.add( myYAxisLabel, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.8, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 10 ), 0, 0 ) );
+    panelAxes.add( myShowAxisY, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 10 ), 0, 0 ) );
+    panelAxes.add( myShowYTics, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelAxes.add( myTextGridIncY, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.1, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelAxes.add( myTextMinorRatioY, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.1, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 10 ), 0, 0 ) );
+    panelAxes.add( myShowAnnotationY, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
         GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
 
-//    panelCheck.add( myAutoScaleAxes, new GridBagConstraints(
-//        0, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-//        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-    //    panelCheck.add( myIsTrueScale, new GridBagConstraints(
-//        0, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-//        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-//    panelCheck.add( myCentreAxisX, new GridBagConstraints(
-//        0, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-//        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-//    panelCheck.add( myCentreAxisY, new GridBagConstraints(
-//        0, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-//        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-
-    panelCheck.add( Box.createVerticalGlue(), new GridBagConstraints(
-        0, yp++, 1, 1, 1.0, 1.0, GridBagConstraints.WEST,
+    //------------------------------------------------------------------------
+    //
+    JPanel panelGeneral = new JPanel(new GridBagLayout());
+    panelGeneral.setBorder( BorderFactory.createCompoundBorder(
+        BorderFactory.createTitledBorder("General settings"),
+        csStandard.INNER_EMPTY_BORDER ) );
+    xp = 0;
+    yp = 0;
+    panelGeneral.add( myShowGrid, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelGeneral.add( myShowAxisZero, new GridBagConstraints(
+        xp++, yp++, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelGeneral.add( new JLabel("Title:"), new GridBagConstraints(
+        0, yp, 1, 1, 0.0, 0.0, GridBagConstraints.EAST,
+        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelGeneral.add( myGraphTitle, new GridBagConstraints(
+        1, yp++, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
+    panelGeneral.add( Box.createVerticalGlue(), new GridBagConstraints(
+        0, yp++, 2, 1, 1.0, 1.0, GridBagConstraints.WEST,
         GridBagConstraints.VERTICAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
 
+    //------------------------------------------------------------------------
+    //
+    JPanel panelBorder = new JPanel(new GridBagLayout());
+    panelBorder.setBorder( BorderFactory.createCompoundBorder(
+        BorderFactory.createTitledBorder("Border setup"),
+        csStandard.INNER_EMPTY_BORDER ) );
+    xp = 0;
+    yp = 0;
+    panelBorder.add( Box.createHorizontalGlue(), new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelBorder.add( new JLabel("Size"), new GridBagConstraints(
+        xp++, yp, 1, 1, 0.5, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelBorder.add( new JLabel("Padding"), new GridBagConstraints(
+        xp++, yp++, 1, 1, 0.5, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
+    xp = 0;
+    panelBorder.add( myShowBorder, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelBorder.add( myBorderSize, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.5, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelBorder.add( myBorderPadding, new GridBagConstraints(
+        xp++, yp++, 1, 1, 0.5, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
+    xp = 0;
+    panelBorder.add( myShowInnerBorder, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelBorder.add( myInnerBorderSize, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.5, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelBorder.add( myInnerBorderPadding, new GridBagConstraints(
+        xp++, yp++, 1, 1, 0.5, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
+    xp = 0;
+    panelBorder.add( new JLabel("Inset:"), new GridBagConstraints(
+        xp++, yp, 1, 1, 0.0, 0.0, GridBagConstraints.EAST,
+        GridBagConstraints.NONE, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelBorder.add( myTextInset, new GridBagConstraints(
+        xp++, yp, 1, 1, 0.5, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 5 ), 0, 0 ) );
+    panelBorder.add( Box.createHorizontalGlue(), new GridBagConstraints(
+        xp++, yp, 1, 1, 0.5, 0.0, GridBagConstraints.WEST,
+        GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
+
+    //------------------------------------------------------------------------
+    //
     yp = 0;
 
     panelOther.add( myLabelXAxisScale, new GridBagConstraints(
@@ -460,18 +412,22 @@ public class csGraphDispDialog extends JDialog {
      this.getRootPane().setDefaultButton(myButtonApply);
 
      //  ----------------------------
-     int xp = 0;
-     yp = 0;
-     JPanel panelUpper = new JPanel(new GridBagLayout());
-     panelUpper.add( panelCheck, new GridBagConstraints(
-         0, 0, 1, 1, 0.0, 1.0, GridBagConstraints.NORTH,
-         GridBagConstraints.VERTICAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-     panelUpper.add( panelText, new GridBagConstraints(
-         1, 0, 1, 1, 1.0, 1.0, GridBagConstraints.NORTH,
+     myPanelCurves = new JTabbedPane( JTabbedPane.TOP, JTabbedPane.SCROLL_TAB_LAYOUT );
+     updateCurvePanel();
+
+     JPanel panelMany = new JPanel(new GridBagLayout());
+     panelMany.setBorder( BorderFactory.createCompoundBorder(
+         BorderFactory.createTitledBorder("General settings"),
+         csStandard.INNER_EMPTY_BORDER ) );
+     panelMany.add( panelAxes, new GridBagConstraints(
+         0, 0, 1, 1, 1.0, 1.0, GridBagConstraints.NORTH,
          GridBagConstraints.BOTH, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-//     panelUpper.add( panelOther, new GridBagConstraints(
-//         1, 1, 1, 1, 1.0, 1.0, GridBagConstraints.NORTH,
-//         GridBagConstraints.BOTH, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
+     panelMany.add( panelGeneral, new GridBagConstraints(
+         0, 1, 1, 1, 1.0, 1.0, GridBagConstraints.NORTH,
+         GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
+     panelMany.add( panelBorder, new GridBagConstraints(
+         0, 2, 1, 1, 1.0, 1.0, GridBagConstraints.NORTH,
+         GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
 
      JPanel panelButtons = new JPanel( new GridBagLayout() );
      xp = 0;
@@ -496,7 +452,16 @@ public class csGraphDispDialog extends JDialog {
 
      yp = 0;
 
-     panelAll.add(panelUpper,BorderLayout.CENTER);
+//     panelCurves.add( myPanelCurves, BorderLayout.WEST );
+     panelCurves.add( myPanelCurves, new GridBagConstraints(
+         0, 0, 1, 1, 1.0, 1.0, GridBagConstraints.WEST,
+         GridBagConstraints.BOTH, new Insets( 5, 5, 5, 5 ), 0, 0 ) );
+//     panelCurves.add( Box.createHorizontalGlue(), new GridBagConstraints(
+//         1, 0, 1, 1, 1.0, 1.0, GridBagConstraints.WEST,
+//         GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
+
+     panelAll.add(panelCurves,BorderLayout.NORTH);
+     panelAll.add(panelMany,BorderLayout.CENTER);
      panelAll.add(panelButtons,BorderLayout.SOUTH);
      this.getContentPane().add(panelAll);
 
@@ -510,23 +475,27 @@ public class csGraphDispDialog extends JDialog {
      //------------------------------------------------------------
      //
      myButtonOK.addActionListener(new ActionListener() {
+       @Override
        public void actionPerformed(ActionEvent e) {
          apply();
          dispose();
        }
      });
      myButtonApply.addActionListener(new ActionListener() {
+       @Override
        public void actionPerformed(ActionEvent e) {
          apply();
        }
      });
      myButtonCancel.addActionListener(new ActionListener() {
+       @Override
        public void actionPerformed(ActionEvent e) {
          cancel();
        }
      });
 
      myUseRefValueY.addActionListener(new ActionListener() {
+       @Override
        public void actionPerformed(ActionEvent e) {
          myTextRefValueY.setEnabled( myUseRefValueY.isSelected() );
          apply();
@@ -643,6 +612,7 @@ public class csGraphDispDialog extends JDialog {
       });
 
      this.addWindowListener(new WindowAdapter() {
+       @Override
        public void windowClosing(WindowEvent e) {
          cancel();
        }
@@ -652,6 +622,17 @@ public class csGraphDispDialog extends JDialog {
   //*****************************************************************************************
   //
   //
+  public void updateCurvePanel() {
+    myPanelCurves.removeAll();
+    Collection<csCurve> curveList = myGraph.getCurves();
+    Iterator<csCurve> iter = curveList.iterator();
+    int counter = 0;
+    while( iter.hasNext() ) {
+      csCurve curve = iter.next();
+      myPanelCurves.add( curve.attr.getPanel() );
+      myPanelCurves.setTitleAt( counter++, curve.attr.name );
+    }
+  }
   private void cancel() {
     dispose();
   }
@@ -662,14 +643,11 @@ public class csGraphDispDialog extends JDialog {
     // Text fields
     try {
       String text;
-      text = myTextInsetLeft.getText();
-      ga.insetLeft = Integer.parseInt( text );
-      text = myTextInsetTop.getText();
-      ga.insetTop = Integer.parseInt( text );
-      text = myTextInsetRight.getText();
-      ga.insetRight = Integer.parseInt( text );
-      text = myTextInsetBottom.getText();
-      ga.insetBottom = Integer.parseInt( text );
+      text = myTextInset.getText();
+      ga.insetLeft   = Integer.parseInt( text );
+      ga.insetBottom = ga.insetLeft;
+      ga.insetTop    = ga.insetLeft;
+      ga.insetRight  = ga.insetLeft;
       text = myTextMinAxisX.getText();
       ga.minAxisX = Float.parseFloat( text );
       text = myTextMaxAxisX.getText();
@@ -684,8 +662,16 @@ public class csGraphDispDialog extends JDialog {
       ga.gridYPixelInc = Integer.parseInt( text );
       text = myTextMinorRatioX.getText();
       ga.minorXTicRatio = Integer.parseInt( text );
+      if( ga.minorXTicRatio < 1 ) {
+        ga.minorXTicRatio = 1;
+        myTextMinorRatioX.setText("1");
+      }
       text = myTextMinorRatioY.getText();
       ga.minorYTicRatio = Integer.parseInt( text );
+      if( ga.minorYTicRatio < 1 ) {
+        ga.minorYTicRatio = 1;
+        myTextMinorRatioY.setText("1");
+      }
 
       text = myBorderSize.getText();
       ga.borderSize = Integer.parseInt( text );
@@ -741,10 +727,7 @@ public class csGraphDispDialog extends JDialog {
 
     myAttr = ga;
 
-    myTextInsetLeft.setText(""+ga.insetLeft);
-    myTextInsetTop.setText(""+ga.insetTop);
-    myTextInsetRight.setText(""+ga.insetRight);
-    myTextInsetBottom.setText(""+ga.insetBottom);
+    myTextInset.setText(""+ga.insetTop);
     myTextMinAxisX.setText(""+ga.minAxisX);
     myTextMaxAxisX.setText(""+ga.maxAxisX);
     myTextMinAxisY.setText(""+ga.minAxisY);
@@ -805,6 +788,14 @@ public class csGraphDispDialog extends JDialog {
         System.exit( 0 );
       }
     });    
+  }
+
+  @Override
+  public void graph2DValues(float xModel, float yModel) {
+  }
+  @Override
+  public void graphChanged() {
+    updateCurvePanel();
   }
 }
 

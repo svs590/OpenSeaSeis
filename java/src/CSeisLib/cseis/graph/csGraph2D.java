@@ -16,11 +16,14 @@ import java.util.*;
  * Prototype for 2D graph panel.<br>
  * Will currently only display a single 'curve' at once.
  * @author Bjorn Olofsson
+ * 2015 - Added support for arbitrary number of graphs
  */
-public class csGraph2D extends JPanel implements MouseListener, MouseMotionListener {
+public class csGraph2D extends JPanel implements MouseListener, MouseMotionListener, csCurveAttrChangeListener {
   private java.text.DecimalFormat myAnnotationFormat;
   private java.text.DecimalFormat myExponentFormat;
-
+  public static final float[] DASH_PATTERN = { 3.0f, 3.0f };
+  public static final float DASH_PHASE = 3.0f;
+  
   protected int my2TopXAxis;
   protected int my2TopOuterBorder;
   protected int my2HeightOuterBorder;
@@ -198,10 +201,14 @@ public class csGraph2D extends JPanel implements MouseListener, MouseMotionListe
   //-----------------------------------------------------------------
   //
   public void removeCurve( int curveID ) {
+    csCurve curve = myCurves.get(curveID);
+    if( curve == null ) return;
+    curve.attr.removeListener( this );
     myCurves.remove(curveID);
     resetCurveMinMax();
     setCurveLayout();
     repaint();
+    fireGraphChangedEvent();
   }
   public void updateCurve( int curveID, float[] valuesX, float[] valuesY, boolean refresh ) {
     csCurve curve = myCurves.get(curveID);
@@ -223,6 +230,7 @@ public class csGraph2D extends JPanel implements MouseListener, MouseMotionListe
   }
   public void addCurve( csCurve curve, boolean refresh ) {
     if( curve == null ) return;
+    curve.attr.addListener( this );
     myCurves.put( curve.curveID, curve );
     setCurve( curve.curveID );
     if( refresh ) {
@@ -230,6 +238,7 @@ public class csGraph2D extends JPanel implements MouseListener, MouseMotionListe
       setCurveLayout();
       repaint();
     }
+    fireGraphChangedEvent();
   }
   private void setCurve( int curveID ) {
     csCurveAttributes attr = myCurves.get(curveID).attr;
@@ -324,6 +333,10 @@ public class csGraph2D extends JPanel implements MouseListener, MouseMotionListe
         resetViewPositionHorz( myNextViewPositionHorz );
       }
     }
+  }
+  //-----------------------------------------------------------------
+  public int getNumCurves() {
+    return myCurves.size();
   }
   //-----------------------------------------------------------------
   public java.util.Set<Integer> getCurveIDs() {
@@ -502,15 +515,19 @@ public class csGraph2D extends JPanel implements MouseListener, MouseMotionListe
       heightGraph -= 2*myGraphAttr.innerBorderPadding;
     }
     if( myGraphAttr.showAxisY ) {
-      if( myGraphAttr.showAxisYAnnotation ) {
-        topGraph    += DEFAULT_SIZE_LABEL + DEFAULT_PADDING_LABEL; // additional space for 10^exponent on Y axis
-        heightGraph -= (DEFAULT_SIZE_LABEL + DEFAULT_PADDING_LABEL); // additional space for 10^exponent on Y axis
-      }
+//      if( myGraphAttr.showYTics ) {
+        if( myGraphAttr.showAxisYAnnotation ) {
+          topGraph    += DEFAULT_SIZE_LABEL + DEFAULT_PADDING_LABEL; // additional space for 10^exponent on Y axis
+          heightGraph -= (DEFAULT_SIZE_LABEL + DEFAULT_PADDING_LABEL); // additional space for 10^exponent on Y axis
+        }
+//      }
     }
     if( myGraphAttr.showAxisX ) {
-      if( myGraphAttr.showAxisXAnnotation ) {
-        heightGraph -= (DEFAULT_SIZE_LABEL + DEFAULT_PADDING_LABEL);
-      }
+//      if( myGraphAttr.showXTics ) {
+        if( myGraphAttr.showAxisXAnnotation ) {
+          heightGraph -= (DEFAULT_SIZE_LABEL + DEFAULT_PADDING_LABEL);
+        }
+//      }
     }
     my2TopXAxis = topGraph + heightGraph;
     topGraph    += myGraphAttr.graphPadding;
@@ -730,21 +747,6 @@ public class csGraph2D extends JPanel implements MouseListener, MouseMotionListe
         g2.fill( pathFill );
       }
       //---------------------------------------------------------------------
-      // Paint points
-      //
-      if( attr.pointType != csCurveAttributes.POINT_TYPE_NONE ) {
-        g2.setStroke( new BasicStroke(attr.lineSize) );
-        g2.setColor(attr.pointColor);
-        Shape shape = new Ellipse2D.Float( xpos[0]-attr.pointSize/2,
-            ypos[0]-attr.pointSize/2, attr.pointSize, attr.pointSize );
-        g2.fill( shape );
-
-        for( int ipos = 1; ipos < nPositions; ipos++ ) {
-          shape = new Ellipse2D.Float( xpos[ipos]-attr.pointSize/2, ypos[ipos]-attr.pointSize/2, attr.pointSize, attr.pointSize );
-          g2.fill( shape );
-        }
-      }
-      //---------------------------------------------------------------------
       // Paint lines
       //
       if( attr.lineType != csCurveAttributes.LINE_TYPE_NONE ) {
@@ -753,9 +755,63 @@ public class csGraph2D extends JPanel implements MouseListener, MouseMotionListe
         for( int ipos = 1; ipos < nPositions; ipos++ ) {
           path.lineTo( xpos[ipos], ypos[ipos] );
         }
-        g2.setStroke( new BasicStroke(attr.lineSize) );
+        Stroke strokeSave = g2.getStroke();
+        if( attr.lineType == csCurveAttributes.LINE_TYPE_SOLID ) {
+          g2.setStroke( new BasicStroke(attr.lineSize) );
+        }
+        else {
+          float[] dashPattern = new float[DASH_PATTERN.length];
+          if( attr.lineType == csCurveAttributes.LINE_TYPE_DASH ) {
+            dashPattern[0] = 3*attr.lineSize;
+            dashPattern[1] = 4*attr.lineSize;
+            g2.setStroke( new BasicStroke( 
+                attr.lineSize, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_ROUND, 10.0f, dashPattern, 0.0f ) );
+          }
+          else if( attr.lineType == csCurveAttributes.LINE_TYPE_DOT ) {
+            dashPattern[0] = 1;
+            dashPattern[1] = 1 + (int)(1.3*attr.lineSize);
+            g2.setStroke( new BasicStroke( 
+                attr.lineSize, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10.0f, dashPattern, 0.0f ) );
+          }
+        }
         g2.setColor(attr.lineColor);
         g2.draw( path );
+        g2.setStroke( strokeSave );
+      }
+      //---------------------------------------------------------------------
+      // Paint points
+      //
+      if( attr.pointType != csCurveAttributes.POINT_TYPE_NONE ) {
+        g2.setStroke( new BasicStroke(attr.lineSize) );
+        g2.setColor(attr.pointColor);
+        if( attr.pointType == csCurveAttributes.POINT_TYPE_CIRCLE || attr.pointSize == 1 ) {
+          for( int ipos = 0; ipos < nPositions; ipos++ ) {
+            Shape shape = new Ellipse2D.Float( xpos[ipos]-attr.pointSize/2, ypos[ipos]-attr.pointSize/2, attr.pointSize, attr.pointSize );
+            g2.fill( shape );
+          }
+        }
+        else if( attr.pointType == csCurveAttributes.POINT_TYPE_SQUARE ) {
+          Rectangle2D.Double shape = new Rectangle2D.Double(0,0,attr.pointSize,attr.pointSize);
+          int pointSizeHalf = attr.pointSize/2;
+          for( int ipos = 0; ipos < nPositions; ipos++ ) {
+            shape.x = xpos[ipos] - pointSizeHalf;
+            shape.y = ypos[ipos] - pointSizeHalf;
+            g2.fill( shape );
+          }
+        }
+        else if( attr.pointType == csCurveAttributes.POINT_TYPE_CROSS ) {
+          int pointSizeHalf = attr.pointSize/2;
+          for( int ipos = 0; ipos < nPositions; ipos++ ) {
+            GeneralPath path = new GeneralPath();
+            double x0 = xpos[ipos];
+            double y0 = ypos[ipos];
+            path.moveTo(x0-pointSizeHalf,y0-pointSizeHalf);
+            path.lineTo(x0+pointSizeHalf,y0+pointSizeHalf);
+            path.moveTo(x0-pointSizeHalf,y0+pointSizeHalf);
+            path.lineTo(x0+pointSizeHalf,y0-pointSizeHalf);
+            g2.draw(path);
+          }
+        }
       }
     }
   }
@@ -799,6 +855,7 @@ public class csGraph2D extends JPanel implements MouseListener, MouseMotionListe
 //---------------------------------------------------------------------------
   public void paintXAxis( Graphics2D g2, float xposMinAxis, float xposMaxAxis ) {
     float xpos0Axis = xModel2View( 0 );
+    float ypos0Axis = yModel2View( 0 );
 
     float yposMaxAxis = my2OuterGraphRect.y;
     float yposMinAxis = my2OuterGraphRect.y + my2OuterGraphRect.height;
@@ -822,58 +879,62 @@ public class csGraph2D extends JPanel implements MouseListener, MouseMotionListe
     g2.setFont(myGraphAttr.annotationFont);
 
     // Paint axes
-    GeneralPath path = new GeneralPath();
-    if( myGraphAttr.showZeroAxis && xpos0Axis >= xposMinAxis && xpos0Axis <= xposMaxAxis ) {
-      if( xpos0Axis >= xposMinAxis && xpos0Axis <= xposMaxAxis ) {
-        path.moveTo( xpos0Axis, yposMinAxis );
-        path.lineTo( xpos0Axis, yposMaxAxis );
-      }
-    }
     if( myGraphAttr.showAxisX ) {
+      GeneralPath path = new GeneralPath();
+      if( myGraphAttr.showZeroAxis ) {
+        if( ypos0Axis >= yposMaxAxis && ypos0Axis <= yposMinAxis ) {
+          path.moveTo( xposMinAxis, ypos0Axis );
+          path.lineTo( xposMaxAxis, ypos0Axis );
+        }
+      }
       path.moveTo( xposMinAxis, yposMinAxis );
       path.lineTo( xposMaxAxis, yposMinAxis );
-    }
-    if( myGraphAttr.showAxisX || myGraphAttr.showZeroAxis ) {
       g2.setColor( myGraphAttr.axisColor );
       g2.setStroke( new BasicStroke(2) );
       g2.draw( path );
-    }
-    if( myGraphAttr.showXTics ) {
       int numVal = ( myGraphAttr.minorXTicRatio == 0 ) ? numGridX : numGridX*myGraphAttr.minorXTicRatio;
-      for( int ix = 0; ix < numVal; ix++ ) {
-        float xpos = xpos0 + (float)ix*myGraphAttr.gridIncX/(float)myGraphAttr.minorXTicRatio;
-        if( xpos < xposMinAxis || xpos > xposMaxAxis ) continue;
-        if( ix % myGraphAttr.minorXTicRatio == 0 ) {
-          pathMajor.moveTo( xpos, yposMinAxis-majorTicLength );
-          pathMajor.lineTo( xpos, yposMinAxis+majorTicLength );
-          if( myGraphAttr.showAxisXAnnotation ) {
+
+      if( myGraphAttr.showXTics ) {
+        for( int ix = 0; ix < numVal; ix++ ) {
+          float xpos = xpos0 + (float)ix*myGraphAttr.gridIncX/(float)myGraphAttr.minorXTicRatio;
+          if( xpos < xposMinAxis || xpos > xposMaxAxis ) continue;
+          if( ix % myGraphAttr.minorXTicRatio == 0 ) {
+            pathMajor.moveTo( xpos, yposMinAxis-majorTicLength );
+            pathMajor.lineTo( xpos, yposMinAxis+majorTicLength );
+          }
+          else {
+            pathMinor.moveTo( xpos, yposMinAxis-minorTicLength );
+            pathMinor.lineTo( xpos, yposMinAxis+minorTicLength );
+          }
+        }
+        g2.setColor( Color.black );
+        g2.setStroke( new BasicStroke(2) );
+        g2.draw( pathMajor );
+        g2.setStroke( new BasicStroke(1) );
+        g2.draw( pathMinor );
+        g2.setClip(null);
+      }
+      if( myGraphAttr.showAxisXAnnotation ) {
+        for( int ix = 0; ix < numVal; ix++ ) {
+          float xpos = xpos0 + (float)ix*myGraphAttr.gridIncX/(float)myGraphAttr.minorXTicRatio;
+          if( xpos < xposMinAxis || xpos > xposMaxAxis ) continue;
+          if( ix % myGraphAttr.minorXTicRatio == 0 ) {
             String text = myAnnotationFormat.format(xView2Model(xpos)/myPowerX);
             int width = metrics.stringWidth( text );
             g2.drawString( text, (int)(xpos-width/2), (int)yposMinAxis+majorTicLength+metrics.getHeight() );
           }
         }
-        else {
-          pathMinor.moveTo( xpos, yposMinAxis-minorTicLength );
-          pathMinor.lineTo( xpos, yposMinAxis+minorTicLength );
-        }
-      }
-      g2.setColor( Color.black );
-      g2.setStroke( new BasicStroke(2) );
-      g2.draw( pathMajor );
-      g2.setStroke( new BasicStroke(1) );
-      g2.draw( pathMinor );
-      g2.setClip(null);
-      if( myGraphAttr.showAxisXAnnotation ) {
         String exponent = myExponentFormat.format(Math.log10(myPowerX));
         java.text.AttributedString as = new java.text.AttributedString("10"+exponent);
         as.addAttribute(java.awt.font.TextAttribute.FONT, myGraphAttr.annotationFont, 0, 2 );
         as.addAttribute(java.awt.font.TextAttribute.SUPERSCRIPT, java.awt.font.TextAttribute.SUPERSCRIPT_SUPER, 2, 2+exponent.length());
         g2.drawString( as.getIterator(), xposMaxAxis+DEFAULT_PADDING_LABEL, yposMinAxis+metrics.getHeight()/2 );
-      }
+      }    
     }
   }
 //---------------------------------------------------------------------------
   public void paintYAxis( Graphics2D g2, float xposMinAxis, float xposMaxAxis ) {
+    float xpos0Axis = xModel2View( 0 );
     float ypos0Axis = yModel2View( 0 );
 
     float yposMaxAxis = my2OuterGraphRect.y;
@@ -892,26 +953,51 @@ public class csGraph2D extends JPanel implements MouseListener, MouseMotionListe
     FontMetrics metrics = g2.getFontMetrics( myGraphAttr.annotationFont );
     g2.setFont(myGraphAttr.annotationFont);
     g2.setColor( Color.black );
-    if( myGraphAttr.showYTics ) {
+
+    if( myGraphAttr.showAxisY ) {
+      GeneralPath path = new GeneralPath();
+      path.moveTo( xposMinAxis, yposMinAxis );
+      path.lineTo( xposMinAxis, yposMaxAxis );
+      if( myGraphAttr.showZeroAxis ) {
+        if( xpos0Axis >= xposMinAxis && xpos0Axis <= xposMaxAxis ) {
+          path.moveTo( xpos0Axis, yposMinAxis );
+          path.lineTo( xpos0Axis, yposMaxAxis );
+        }
+      }
+      g2.setStroke( new BasicStroke(2) );
+      g2.draw( path );
+      
       int numVal = ( myGraphAttr.minorYTicRatio == 0 ) ? numGridY : numGridY*myGraphAttr.minorYTicRatio;
-      for( int iy = 0; iy < numVal; iy++ ) {
-        float ypos = ypos0 + (float)iy*myGraphAttr.gridIncY/(float)myGraphAttr.minorYTicRatio;
-        if( ypos < my2OuterGraphRect.y || ypos > my2OuterGraphRect.y+my2OuterGraphRect.height ) continue;
-        if( iy % myGraphAttr.minorYTicRatio == 0 ) {
-          pathMajor.moveTo(xposMinAxis-majorTicLength, ypos);
-          pathMajor.lineTo(xposMinAxis+majorTicLength, ypos );
-          if( myGraphAttr.showAxisYAnnotation ) {
+      if( myGraphAttr.showYTics ) {
+        for( int iy = 0; iy < numVal; iy++ ) {
+          float ypos = ypos0 + (float)iy*myGraphAttr.gridIncY/(float)myGraphAttr.minorYTicRatio;
+          if( ypos < my2OuterGraphRect.y || ypos > my2OuterGraphRect.y+my2OuterGraphRect.height ) continue;
+          if( iy % myGraphAttr.minorYTicRatio == 0 ) {
+            pathMajor.moveTo(xposMinAxis-majorTicLength, ypos);
+            pathMajor.lineTo(xposMinAxis+majorTicLength, ypos );
+          }
+          else {
+            pathMinor.moveTo(xposMinAxis-minorTicLength, ypos);
+            pathMinor.lineTo(xposMinAxis+minorTicLength, ypos );
+          }
+        } // END for iy
+        
+        g2.setColor( Color.black );
+        g2.setStroke( new BasicStroke(2) );
+        g2.draw( pathMajor );
+        g2.setStroke( new BasicStroke(1) );
+        g2.draw( pathMinor );
+      } // END if showYTics
+      if( myGraphAttr.showAxisYAnnotation ) {
+        for( int iy = 0; iy < numVal; iy++ ) {
+          float ypos = ypos0 + (float)iy*myGraphAttr.gridIncY/(float)myGraphAttr.minorYTicRatio;
+          if( ypos < my2OuterGraphRect.y || ypos > my2OuterGraphRect.y+my2OuterGraphRect.height ) continue;
+          if( iy % myGraphAttr.minorYTicRatio == 0 ) {
             String text = myAnnotationFormat.format(yView2Model(ypos)/myPowerY);
             int width = metrics.stringWidth( text );
             g2.drawString( text, (int)(xposMinAxis-majorTicLength*2-width), (int)ypos+metrics.getHeight()/2 );
           }
         }
-        else {
-          pathMinor.moveTo(xposMinAxis-minorTicLength, ypos);
-          pathMinor.lineTo(xposMinAxis+minorTicLength, ypos );
-        }
-      }
-      if( myGraphAttr.showAxisYAnnotation ) {
         String text = "10";
         String exponent = myExponentFormat.format(Math.log10(myPowerY));
         java.text.AttributedString as = new java.text.AttributedString("10"+exponent);
@@ -919,32 +1005,8 @@ public class csGraph2D extends JPanel implements MouseListener, MouseMotionListe
         as.addAttribute(java.awt.font.TextAttribute.FONT, myGraphAttr.annotationFont, 0, 2 );
         as.addAttribute(java.awt.font.TextAttribute.SUPERSCRIPT, java.awt.font.TextAttribute.SUPERSCRIPT_SUPER, 2, 2+exponent.length());
         g2.drawString( as.getIterator(), xposMinAxis-width/2, yposMaxAxis-DEFAULT_PADDING_LABEL );
-      }
-    }
-    if( myGraphAttr.showYTics ) {
-      g2.setColor( Color.black );
-      g2.setStroke( new BasicStroke(2) );
-      g2.draw( pathMajor );
-      g2.setStroke( new BasicStroke(1) );
-      g2.draw( pathMinor );
-    }
-
-    // Paint axes
-    GeneralPath path = new GeneralPath();
-    if( myGraphAttr.showZeroAxis ) {
-      if( ypos0Axis >= yposMinAxis && ypos0Axis <= yposMaxAxis ) {
-        path.moveTo( xposMinAxis, ypos0Axis );
-        path.lineTo( xposMaxAxis, ypos0Axis );
-      }
-    }
-    if( myGraphAttr.showAxisY ) {
-      path.moveTo( xposMinAxis, yposMinAxis );
-      path.lineTo( xposMinAxis, yposMaxAxis );
-    }
-    if( myGraphAttr.showAxisY || myGraphAttr.showZeroAxis ) {
-      g2.setStroke( new BasicStroke(2) );
-      g2.draw( path );
-    }
+      } // END if showAxisYAnnotation
+    } // END: if showAxisY
   }
   //------------------------------------------------------------------------------------
   //
@@ -1160,6 +1222,14 @@ public class csGraph2D extends JPanel implements MouseListener, MouseMotionListe
       myListeners.get(i).graph2DValues( xModel, yModel );
     }
   }
-
+  private void fireGraphChangedEvent() {
+    for( int i = 0; i < myListeners.size(); i++ ) {
+      myListeners.get(i).graphChanged();
+    }
+  }
+  @Override
+  public void curveAttrChanged() {
+    repaint();
+  }
 }
 

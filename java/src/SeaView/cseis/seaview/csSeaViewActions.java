@@ -40,7 +40,8 @@ public class csSeaViewActions {
   public static final int PickModeAction        = 21;
   public static final int FitToScreenAction     = 22;
   public static final int SelectPanesAction     = 23;
-  public static final int SelectPanesAlertAction     = 24;
+  public static final int SelectPanesAlertAction = 24;
+  public static final int PaintModeAction       = 25;
 
   public static final String [] ACTION_DESC = {
     "Move to next seismic section" ,
@@ -67,7 +68,8 @@ public class csSeaViewActions {
     "Picking mode" ,
     "Fit pane content to screen size",
     "Hide/show panes",
-    "Hide/show panes. Hidden panes exist."
+    "Hide/show panes. Hidden panes exist.",
+    "Paint mode"
   };
   public static final int [] ACTION = {
     ForwardSeismicAction  ,
@@ -94,7 +96,8 @@ public class csSeaViewActions {
     PickModeAction        ,
     FitToScreenAction     ,
     SelectPanesAction     ,
-    SelectPanesAlertAction
+    SelectPanesAlertAction,
+    PaintModeAction
   };
   public static final String [] ACTION_TITLE = {
     "Next seismic section",
@@ -121,7 +124,8 @@ public class csSeaViewActions {
     "Pick mode",
     "Fit to screen",
     "Hide/show panes",
-    "Hide/show panes"
+    "Hide/show panes",
+    "Paint mode"
   };
   public static final String [] ACTION_ICON = {
     "csArrowRight.png",
@@ -148,7 +152,8 @@ public class csSeaViewActions {
     "csPickMode.png",
     "seaview_fitToScreen.png",
     "seaview_selectPanes.png",
-    "seaview_selectPanesAlert.png"
+    "seaview_selectPanesAlert.png",
+    "csPaintMode.png"
   };
   
   public static ImageIcon getIcon( int actionIndex ) {

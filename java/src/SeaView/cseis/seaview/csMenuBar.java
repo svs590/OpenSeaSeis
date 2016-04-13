@@ -1,11 +1,15 @@
 /* Copyright (c) Colorado School of Mines, 2013.*/
 /* All rights reserved.                       */
 
-
 package cseis.seaview;
 
 import javax.swing.ButtonGroup;
 import javax.swing.JOptionPane;
+
+import java.awt.BorderLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.event.KeyEvent;
 import java.awt.event.InputEvent;
 import javax.swing.KeyStroke;
@@ -14,15 +18,24 @@ import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JDialog;
+import javax.swing.JPanel;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JMenuBar;
+import javax.swing.JTextField;
 
 import cseis.general.csColorMap;
+import cseis.general.csStandard;
 import cseis.processing.csProcessingAGC;
 import cseis.processing.csProcessingDCRemoval;
+import cseis.processing.csProcessingInterpolation;
+import cseis.processing.csProcessingFilter;
 import cseis.swing.csAboutDialog;
 import cseis.swing.csRecentFileMenu;
 
@@ -59,6 +72,8 @@ public class csMenuBar extends JMenuBar {
   private JMenu myMenuProcessing;
   private JMenuItem myMenuProcessingClear;
   private JMenuItem myMenuProcessingAGC;
+  private JMenuItem myMenuProcessingFilter;
+  private JMenuItem myMenuProcessingInterpolation;
   private JMenuItem myMenuProcessingDC;
   
   private JCheckBoxMenuItem menuHighlight;
@@ -78,6 +93,7 @@ public class csMenuBar extends JMenuBar {
 
   private JCheckBoxMenuItem menuShowColorbar;
   private JCheckBoxMenuItem menuShowAbsoluteTime;
+  private JCheckBoxMenuItem menuShowVelocity;
   private JCheckBoxMenuItem menuLogScaleY;
 
   private JMenuItem menuSelection;
@@ -114,7 +130,7 @@ public class csMenuBar extends JMenuBar {
     menuView  = new JMenu("View");
     menuViewActive = new JMenu("Active pane");
     menuTools = new JMenu("Tools");
-    menuSEGY  = new JMenu("Segy");
+    menuSEGY  = new JMenu("Segy/SU-Setup");
     menuHelp  = new JMenu("Help");
 
     menuOpen    = new JMenuItem("Open...");
@@ -141,13 +157,13 @@ public class csMenuBar extends JMenuBar {
     menuColorMaps.setToolTipText("Create/modify custom color maps...");
     
     menuOpenFiletype  = new JMenu("Open file");
-    menuOpenSegy    = new JMenuItem("Open SEG-Y file...");
+    menuOpenSegy    = new JMenuItem("Open SEG-Y file...check SEGY/SU-Setup options on menubar to make sure endian is correct!");
     menuOpenSegy.setToolTipText("Open SEG-Y file");
     menuOpenSegd    = new JMenuItem("Open SEG-D file...");
     menuOpenSegd.setToolTipText("Open SEG-D file");
     menuOpenRSF    = new JMenuItem("Open RSF file...");
     menuOpenRSF.setToolTipText("Open RSF (Seplib/Madagascar) file");
-    menuOpenSU    = new JMenuItem("Open SU file...");
+    menuOpenSU    = new JMenuItem("Open SU file...check SEGY/SU-Setup options on menubar to make sure endian is correct!");
     menuOpenSU.setToolTipText("Open SU file...");
     menuOpenCseis    = new JMenuItem("Open Seaseis file...");
     menuOpenCseis.setToolTipText("Open Seaseis (.cseis) file");
@@ -191,6 +207,7 @@ public class csMenuBar extends JMenuBar {
     menuShowAbsoluteTime = new JCheckBoxMenuItem("Show absolute time", false);
     menuLogScaleY        = new JCheckBoxMenuItem("Log scale (Y axis)", false);
     menuShowColorbar     = new JCheckBoxMenuItem("Show colorbar", false);
+    menuShowVelocity = new JCheckBoxMenuItem("Show velocity (FK only)", false);
 
     menuColors8bit  = new JRadioButtonMenuItem("8-bit colors",false);
     menuColors32bit = new JRadioButtonMenuItem("32-bit colors",false);
@@ -214,10 +231,14 @@ public class csMenuBar extends JMenuBar {
     myMenuProcessingClear = new JMenuItem("Clear processing");
     myMenuProcessingAGC = new JMenuItem("AGC");
     myMenuProcessingDC  = new JMenuItem("DC removal");
+    myMenuProcessingFilter = new JMenuItem("Filter");
+    myMenuProcessingInterpolation  = new JMenuItem("Interpolation");
     myMenuProcessing.add(myMenuProcessingClear);
     myMenuProcessing.addSeparator();
     myMenuProcessing.add(myMenuProcessingDC);
     myMenuProcessing.add(myMenuProcessingAGC);
+    myMenuProcessing.add(myMenuProcessingFilter);
+//    myMenuProcessing.add(myMenuProcessingInterpolation);
     
     menuDispSettings.add( menuLoadDispSettings );
     menuDispSettings.add( menuSaveDispSettings );
@@ -255,6 +276,7 @@ public class csMenuBar extends JMenuBar {
     menuView.addSeparator();
     menuView.add(menuShowAbsoluteTime);
     menuView.add(menuShowColorbar);
+    menuView.add(menuShowVelocity);
     menuView.addSeparator();
     menuView.add(menuSnapshot);
     menuView.addSeparator();
@@ -327,6 +349,12 @@ public class csMenuBar extends JMenuBar {
         mySeaView.addProcessingStep( csProcessingDCRemoval.NAME );
       }
     });
+    myMenuProcessingFilter.addActionListener( new ActionListener() {
+      @Override
+      public void actionPerformed( ActionEvent e ) {
+        mySeaView.addProcessingStep( csProcessingFilter.NAME );
+      }
+    });
     myMenuProcessingClear.addActionListener( new ActionListener() {
       @Override
       public void actionPerformed( ActionEvent e ) {
@@ -337,6 +365,12 @@ public class csMenuBar extends JMenuBar {
       @Override
       public void actionPerformed( ActionEvent e ) {
         mySeaView.addProcessingStep( csProcessingAGC.NAME );
+      }
+    });
+    myMenuProcessingInterpolation.addActionListener( new ActionListener() {
+      @Override
+      public void actionPerformed( ActionEvent e ) {
+        mySeaView.addProcessingStep( csProcessingInterpolation.NAME );
       }
     });
     menuSEGYSetup.addActionListener( new ActionListener() {
@@ -376,6 +410,57 @@ public class csMenuBar extends JMenuBar {
       public void itemStateChanged( ItemEvent e ) {
         boolean isSelected = (e.getStateChange() == ItemEvent.SELECTED);
         mySeaView.showAbsoluteTime( isSelected );
+      }
+    });
+    menuShowVelocity.addItemListener(new ItemListener() {
+      @Override
+      public void itemStateChanged( ItemEvent e ) {
+        final boolean isSelected = (e.getStateChange() == ItemEvent.SELECTED);
+        if( !isSelected ) {
+          mySeaView.showVelocity( isSelected, 1.0f );
+        }
+        else {
+          final JDialog dialog = new JDialog( mySeaView, "Set trace spacing", true );
+          final JTextField textfield = new JTextField("1.0");
+  
+          JPanel panelTop = new JPanel(new GridBagLayout());
+          panelTop.setBorder( BorderFactory.createCompoundBorder(
+              BorderFactory.createTitledBorder("Trace spacing"),
+              csStandard.INNER_EMPTY_BORDER ) );
+          
+          panelTop.add( textfield, new GridBagConstraints(
+              0, 0, 1, 1, 1.0, 0.0, GridBagConstraints.WEST,
+              GridBagConstraints.HORIZONTAL, new Insets( 0, 10, 0, 5 ), 0, 0 ) );
+  
+          JButton buttonClose = new JButton("Close");
+          JPanel panelButtons = new JPanel( new GridBagLayout() );
+          panelButtons.add( Box.createHorizontalGlue(), new GridBagConstraints(
+              0, 0, 1, 1, 0.45, 1.0, GridBagConstraints.CENTER,
+              GridBagConstraints.BOTH, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
+          panelButtons.add( buttonClose, new GridBagConstraints(
+              1, 0, 1, 1, 0.45, 0.0, GridBagConstraints.SOUTHWEST,
+              GridBagConstraints.BOTH, new Insets( 11, 0, 0, 0 ), 0, 0 ) );
+          panelButtons.add( Box.createHorizontalGlue(), new GridBagConstraints(
+              1, 0, 1, 1, 0.1, 1.0, GridBagConstraints.CENTER,
+              GridBagConstraints.BOTH, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
+  
+          JPanel panelAll = new JPanel(new BorderLayout());
+          panelAll.setBorder( csStandard.DIALOG_BORDER );
+  
+          panelAll.add(panelTop,BorderLayout.CENTER);
+          panelAll.add(panelButtons,BorderLayout.SOUTH);
+          dialog.getContentPane().add(panelAll);
+          dialog.pack();
+          buttonClose.addActionListener( new ActionListener() {
+            public void actionPerformed(ActionEvent arg0) {
+              float traceSpacing = Float.parseFloat( textfield.getText() );
+              mySeaView.showVelocity( true, traceSpacing );
+              dialog.dispose();
+            }
+          });
+          dialog.setLocationRelativeTo(mySeaView);
+          dialog.setVisible(true);
+        } // END if isSelected
       }
     });
     menuShowColorbar.addItemListener(new ItemListener() {
@@ -588,12 +673,11 @@ public class csMenuBar extends JMenuBar {
       @Override
       public void actionPerformed( ActionEvent e ) {
         csAboutDialog dialog = new csAboutDialog( mySeaView, "SeaView  (part of OpenSeaSeis)" );
-//        dialog.setAuthor("Bjorn Olofsson  ");
         dialog.setVersionString( SeaView.VERSION );
         dialog.setContact("john@dix.mines.edu  ");
-        dialog.setDate("2013  ");
+        dialog.setDate("2015  ");
         dialog.setLogo( cseis.resources.csResources.getIcon("seaview_icon_smooth.png") );
-        dialog.setAdditionalComments("Copyright (c) Colorado School of Mines, 2013\n" +
+        dialog.setAdditionalComments("Copyright (c) Colorado School of Mines, 2015\n" +
                 "All rights reserved.\n" +
                 "Based on SeaSeis, developed by Bjorn Olofsson.");
         dialog.setVisible(true);
@@ -627,6 +711,7 @@ public class csMenuBar extends JMenuBar {
     myMenuProcessingClear.setToolTipText( "Clear applied processing steps" );
     myMenuProcessingDC.setToolTipText( "Remove DC bias" );
     myMenuProcessingAGC.setToolTipText( "Apply AGC (automatic gain control)" );
+    myMenuProcessingInterpolation.setToolTipText( "Apply interpolation (add traces)" );
     
     menuHighlight    .setToolTipText("Highlight trace at mouse position");
     menuCrosshairOn  .setToolTipText("Show crosshair");

@@ -82,7 +82,7 @@ public class csSnapShotPanel extends JPanel implements Scrollable,
         g.drawString("Image #"+(i+1), myMargin, ypos+myTotalHeight-myMargin);
       }
     }
-    if( myIsMouseDragged ) {
+    if( myIsMouseDragged && myMousePressedIndex >= 0 && myMousePressedIndex < mySnapShotThumbList.size()) {
       int mousePos = myMousePosY-myMousePressedPosY;
       myMouseDraggedIndex = (int)((mousePos+myTotalHeight)/myTotalHeight);
       int yposNew  = myMouseDraggedIndex*myTotalHeight;

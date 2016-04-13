@@ -171,6 +171,12 @@ public class csSeisPaneManager {
   public void showOverlayDialog( csSeisPaneBundle bundle ) {
     if( bundle != null ) bundle.showOverlayDialog();
   }
+//  public void setPaintMode( csSeisPaneBundle bundle, boolean doSet ) {
+//    if( bundle != null ) bundle.setPaintMode( doSet );
+//  }
+//  public void setPickMode( csSeisPaneBundle bundle, boolean doSet ) {
+//    if( bundle != null ) bundle.setPickMode( doSet );
+//  }
   //---------------------------------------------------------------
   // Graph panel
   //
