@@ -163,12 +163,14 @@ int main( int argc, char** argv ) {
             isOutputFlow  = true;
             flowOutputName = argv[++iArg];
           }
-          else if( argv[iArg][2] == 'd' ) {
-            isOutputFlow  = true;
-            fprintf(stderr,"The following option is not supported yet: %s\n", argv[iArg]);
-            exit(-1);
-            //flowOutputDir = argv[++iArg];
-          }
+          //          else if( argv[iArg][2] == 'd' ) {
+            //   isOutputFlow  = true;
+            // flowOutputDir = new char [lengthDir+1];
+            // memcpy( flowOutputDir, argv[iArg], length );
+            // flowOutputDir[length] = FORWARD_SLASH;  // Doesn't matter whether this is Unix or Windows system, '/' should work
+            // flowOutputDir[length+1] = '\0';
+            //            flowOutputDir = argv[++iArg];
+          //  }
           else {
             fprintf(stderr,"Unknown command line option : %s\n", argv[iArg]);
             exit(-1);
@@ -350,7 +352,7 @@ int main( int argc, char** argv ) {
   // Open flow/log files, start log
   //
   if( isOutputFlow && !isUserConstant ) {
-    fprintf(stderr,"Output flow name was specified, but no user constants were given (option -D) to support this option.\n");
+    fprintf(stderr,"Output flow name/dir was specified, but no user constants were given (option -D) to support this option.\n");
     fprintf(stderr,"If input flow shall be saved as separate file, at least one user constant must be provided by option -D.\n");
     exit(-1);
   }

@@ -155,7 +155,8 @@ public class csGraphPane extends JPanel implements csIGraph2DListener {
   public void graph2DValues(float xModel, float yModel) {
     myStatusBar.setText("X value: " + xModel + "  Y value: " + yModel);
   }
-
+  public void graphChanged() {
+  }
 }
 
 

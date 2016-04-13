@@ -11,6 +11,9 @@ csSeismicIOConfig::csSeismicIOConfig() {
   numSamples = 0;
   sampleInt  = 0;
   domain     = 0;
+  fftDataType = 0;
+  numSamplesXT = 0;
+  sampleIntXT = 0;
   grid_orig_x  = 0.0;
   grid_orig_y  = 0.0;
   grid_orig_il = 0;

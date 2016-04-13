@@ -66,6 +66,8 @@ template<class A> static A MIN( A val1, A val2 ) {
                                     int nSampIn, float* corr );
  void compute_twosided_correlation( float const* samplesLeft, float const* samplesRight,
                                     int nSampIn, float* corr, int maxlag_in_num_samples );
+ void compute_twosided_correlation( float const* samplesLeft, float const* samplesRight,
+                                    int nSampIn, float* corr, int maxlag_in_num_samples, bool dampen );
  /**
   * Compute correlation between two series (left & right)
   * Number of output samples is determined from maximum lag:
@@ -84,6 +86,7 @@ template<class A> static A MIN( A val1, A val2 ) {
 
  void compute_onesided_auto_correlation( float const* samples, int nSampIn, float* autocorr );
  void compute_onesided_auto_correlation( float const* samples, int nSampIn, float* autocorr, int maxlag_in_num_samples );
+ void compute_onesided_auto_correlation( float const* samples, int nSampIn, float* autocorr, int maxlag_in_num_samples, bool dampen );
 
  /**
  * Compute RMS value for given data series
@@ -92,7 +95,29 @@ template<class A> static A MIN( A val1, A val2 ) {
  * @return RMS value
  */
  float compute_rms( float const* samples, int nSamples );
- 
+
+////////////////////////////////////////////////////////////////////////////////
+// Return the first multiple of small primes (2,3,5 and 7) greater than or 
+// equal to the input value. 
+//
+// The return value is -1 if the value can't be reduced to a factor of small
+// primes. That is, if it is less than 0 or too large (*).
+//
+// (*)NOTE: The largest 32-bit integer that is still a factor of small primes 
+// appears to be 
+//
+//          INT_MAX - 3330622  = 2147483647 - 3330622
+//                             = 2144153025
+//
+// Numbers larger than this are still valid integers up to INT_MAX but can't 
+// be factored.
+// 
+// It is up to the calling program to decide what to do in that case. The return
+// value will still be -1.
+//
+////////////////////////////////////////////////////////////////////////////////
+ int factor_2357( int *my_in );
+
 } // namespace
 
 #endif

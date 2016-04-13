@@ -64,6 +64,7 @@ public class csDockPaneManager extends JPanel implements csIDockPaneListener {
   private BufferedImage myDragImage = null;
   private ArrayList<csIDockPaneSelectionListener> myListeners;
   private boolean myDoActivateNewPanes;
+  private boolean myShowActivePaneFeedback;
 
   public csDockPaneManager() {
     this( false );
@@ -76,10 +77,15 @@ public class csDockPaneManager extends JPanel implements csIDockPaneListener {
     myGridLayout = new GridLayout();
     myTabbedPane = null;
     myIsNewPaneInProgress = false;
-
+    myShowActivePaneFeedback = true;
+    
     myPanes = new ArrayList<csDockPane>();
     myListeners  = new ArrayList<csIDockPaneSelectionListener>();
     setLayout( myGridLayout );
+  }
+  // Show graphical feedback when active pane is selected (=highlight panel for a short time)
+  public void setActivePaneFeedback( boolean showFeedback ) {
+    myShowActivePaneFeedback = showFeedback;
   }
   public static int getNumLayoutOptions() {
     return LAYOUT_TEXT.length;
@@ -261,6 +267,13 @@ public class csDockPaneManager extends JPanel implements csIDockPaneListener {
     else myNumPanesVisible = 0;
 //    fireHideStateEvent( myNumPanesVisible != myPanes.size() );
     reset();
+  }
+  public int getState( JPanel mainPanel ) {
+    int paneIndex = getMainPanelIndex( mainPanel );
+    if( paneIndex >= 0 && paneIndex < myPanes.size() ) {
+      return myPanes.get(paneIndex).getState();
+    }
+    return -1;
   }
   public void changeDocking( JPanel pane, boolean refresh ) {
     int paneIndex = getPaneIndex( pane );
@@ -466,6 +479,15 @@ public class csDockPaneManager extends JPanel implements csIDockPaneListener {
     }
     return -1;
   }
+  private int getMainPanelIndex( JPanel mainPanel_in ) {
+    for( int i = 0; i < myPanes.size(); i++ ) {
+      csDockPane pane = myPanes.get(i);
+      if( pane.getMainPanel().equals(mainPanel_in) ) {
+        return i;
+      }
+    }
+    return -1;
+  }
   public csDockPane getDockPane( int index ) {
     if( index < 0 || index >= myPanes.size() ) {
       return null;
@@ -507,8 +529,9 @@ public class csDockPaneManager extends JPanel implements csIDockPaneListener {
     // Set first visible pane as active
     for( int i = 0; i < myPanes.size(); i++ ) {
       if( myPanes.get(i).isVisible() ) {
-        myPanes.get(i).setActive(true);
-        myActivePaneIndex = i;
+        setActivePane( myPanes.get(i), myLayoutOption );
+//        myPanes.get(i).setActive(true);
+//        myActivePaneIndex = i;
         fireDockPaneSelectionEvent( myPanes.get(i) );
         return;
       }
@@ -521,29 +544,31 @@ public class csDockPaneManager extends JPanel implements csIDockPaneListener {
     setActivePane( pane );
     if( pane.getState() == STATE_UNDOCKED ) return;
     myIsDragging = true;
-    int width  = pane.getWidth();
-    int height = pane.getHeight();
-    myDragImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-    Graphics2D g2 = myDragImage.createGraphics();
-    pane.paint(g2);
-    float factor = 255/5; // Brighten by 20%
-    for( int x = 0; x < width; x++ ) {
-      for( int y = 0; y < height; y++ ) {
-        int rgb = myDragImage.getRGB(x, y);
-        int red = (rgb >> 16) & 0xFF;
-        int green = (rgb >> 8) & 0xFF;
-        int blue = rgb & 0xFF;
-        int redNew   = (int)Math.min(255,red + factor);
-        int greenNew = (int)Math.min(255,green + factor);
-        int blueNew  = (int)Math.min(255,blue + factor);
-        Color colorNew = new Color(redNew, greenNew, blueNew);
-        myDragImage.setRGB(x, y, colorNew.getRGB());
-      }
-    }
     myDragPoint = point;
     myDragPointOrigin = point;
     myDragPaneIndex = paneIndex;
-    repaint();
+    if( myShowActivePaneFeedback ) {
+      int width  = pane.getWidth();
+      int height = pane.getHeight();
+      myDragImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+      Graphics2D g2 = myDragImage.createGraphics();
+      pane.paint(g2);
+      float factor = 255/5; // Brighten by 20%
+      for( int x = 0; x < width; x++ ) {
+        for( int y = 0; y < height; y++ ) {
+          int rgb = myDragImage.getRGB(x, y);
+          int red = (rgb >> 16) & 0xFF;
+          int green = (rgb >> 8) & 0xFF;
+          int blue = rgb & 0xFF;
+          int redNew   = (int)Math.min(255,red + factor);
+          int greenNew = (int)Math.min(255,green + factor);
+          int blueNew  = (int)Math.min(255,blue + factor);
+          Color colorNew = new Color(redNew, greenNew, blueNew);
+          myDragImage.setRGB(x, y, colorNew.getRGB());
+        }
+      }
+      repaint();
+    }
   }
   public void releasePane( csDockPane pane ) {
     if( !myIsDragging ) return;
@@ -635,7 +660,7 @@ public class csDockPaneManager extends JPanel implements csIDockPaneListener {
       pane.setActive(false);
       resetActivePane();
     }
-//    fireHideStateEvent( myNumPanesVisible != myPanes.size() );
+    //    fireHideStateEvent( myNumPanesVisible != myPanes.size() );
   }
   @Override
   public void closePane( csDockPane pane ) {

@@ -124,13 +124,13 @@ void init_mod_rms_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* log
   if( !hdef->headerExists( headerName_rms ) ) {
     hdef->addHeader( TYPE_FLOAT, headerName_rms, "RMS value" );
   }
+
   vars->hdrId_rms = hdef->headerIndex(headerName_rms);
   vars->hdrType_rms = hdef->headerType(headerName_rms);
   if( vars->hdrType_rms != TYPE_FLOAT && vars->hdrType_rms != TYPE_DOUBLE ) {
     log->error("Trace header '%s' exists but has wrong type (%s). Type should be 'float' or 'double'.",
                cseis_geolib::csGeolibUtils::typeText(vars->hdrType_rms), headerName_rms.c_str());
   }
-
 }
 
 //*************************************************************************************************

@@ -5,6 +5,7 @@
 #include "csIODefines.h"
 #include "csSeismicWriter.h"
 #include "csTimer.h"
+#include "csFileUtils.h"
 
 using namespace cseis_system;
 using namespace cseis_geolib;
@@ -22,6 +23,9 @@ namespace mod_output {
     std::string filename;
     cseis_system::csSeismicWriter* writer;
     int nTracesOut;
+    bool isFirstCall;
+    int numTracesBuffer;
+    int sampleByteSize; //, doOverwrite
   };
 }
 using namespace mod_output;
@@ -45,6 +49,9 @@ void init_mod_output_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
   vars->filename   = "";
   vars->writer     = NULL;
   vars->nTracesOut = 0;
+  vars->numTracesBuffer = 20;
+  vars->sampleByteSize = 4;
+  vars->isFirstCall = true;
 
   bool doOverwrite = true;
   if( param->exists("overwrite") ) {
@@ -62,18 +69,17 @@ void init_mod_output_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
     }
   }
 
-  int sampleByteSize = 4;
   if( param->exists("compress") ) {
     std::string text;
     param->getString("compress", &text);
     if( !text.compare("no") || !text.compare("32bit") ) {
-      sampleByteSize = 4;
+      vars->sampleByteSize = 4;
     }
     else if( !text.compare("16bit") ) { 
-      sampleByteSize = 2;
+      vars->sampleByteSize = 2;
     }
     else if( !text.compare("8bit") ) { 
-      sampleByteSize = 1;
+      vars->sampleByteSize = 1;
     }
     else {
       log->line("Unknown option for user parameter compress: '%s'", text.c_str());
@@ -91,20 +97,19 @@ void init_mod_output_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
     }
   }
 
-  int numTracesBuffer = 20;
   if( param->exists( "ntraces_buffer" ) ) {
-    param->getInt( "ntraces_buffer", &numTracesBuffer );
-    if( numTracesBuffer <= 0 || numTracesBuffer > 999999 ) {
-      log->warning("Number of buffered traces out of range (=%d). Changed to 1.", numTracesBuffer);
-      numTracesBuffer = 1;
+    param->getInt( "ntraces_buffer", &vars->numTracesBuffer );
+    if( vars->numTracesBuffer <= 0 || vars->numTracesBuffer > 999999 ) {
+      log->warning("Number of buffered traces out of range (=%d). Changed to 1.", vars->numTracesBuffer);
+      vars->numTracesBuffer = 1;
     }
   }
 
-  try {
-    vars->writer = new csSeismicWriter( vars->filename, numTracesBuffer, sampleByteSize, doOverwrite );
+  if( !doOverwrite && csFileUtils::fileExists( vars->filename ) ) {
+    log->error("File %s already exists but user parameter set to 'overwrite no'.", vars->filename.c_str() );
   }
-  catch( csException& exc ) {
-    log->error("Error occurred when opening SeaSeis file. System message:\n%s", exc.getMessage() );
+  if( !csFileUtils::createDoNotOverwrite( vars->filename ) ) {
+    log->error("Cannot open SeaSeis output file '%s'", vars->filename.c_str() );
   }
 
   log->line("");
@@ -140,6 +145,18 @@ bool exec_mod_output_(
     delete vars; vars = NULL;
     return true;
   }
+
+  if( vars->isFirstCall ) {
+    vars->isFirstCall = false;
+    try {
+      vars->writer = new csSeismicWriter( vars->filename, vars->numTracesBuffer, vars->sampleByteSize, true );
+    }
+    catch( csException& exc ) {
+      log->error("Error occurred when opening SeaSeis file. System message:\n%s", exc.getMessage() );
+    }
+  }
+
+
   if( edef->isDebug() ) log->line("Output SeaSeis trace #%d", vars->nTracesOut+1);
 
   float* samples = trace->getTraceSamples();

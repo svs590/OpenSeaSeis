@@ -436,4 +436,22 @@ bool csFileUtils::seekg_relative( csInt64_t bytePosRelative, std::ifstream* file
   return true;
 }
 
-
+bool csFileUtils::fileExists( std::string const& filename ) {
+  FILE* ftest = fopen( filename.c_str(), "r" );
+  if( ftest == NULL ) { // File does not exist
+    return false;
+  }
+  fclose(ftest);
+  return true;
+}
+bool csFileUtils::createDoNotOverwrite( std::string const& filename ) {
+  FILE* ftest = fopen( filename.c_str(), "r" );
+  if( ftest != NULL ) { // File already exists
+    fclose(ftest);
+    return true;
+  }
+  ftest = fopen( filename.c_str(), "w" ); // Create file
+  if( ftest == NULL ) return false;
+  fclose(ftest);
+  return true;
+}

@@ -30,6 +30,7 @@ namespace mod_trc_add_ens {
     int method;
     int hdrID_pad;
     int hdrType_pad;
+    int hdrID_padFlag;
     csFlexNumber start;
     csFlexNumber stop;
     csFlexNumber inc;
@@ -61,6 +62,7 @@ void init_mod_trc_add_ens_( csParamManager* param, csInitPhaseEnv* env, csLogWri
   vars->start          = 0;
   vars->stop           = 0;
   vars->inc            = 0;
+  vars->hdrID_padFlag  = -1;
   vars->hdrID_pad      = -1;
   vars->method         = mod_trc_add_ens::METHOD_NTRACES;
   vars->deleteInconsistentTraces = false;
@@ -72,7 +74,7 @@ void init_mod_trc_add_ens_( csParamManager* param, csInitPhaseEnv* env, csLogWri
     if( !text.compare("ntraces") ) {
       vars->method = mod_trc_add_ens::METHOD_NTRACES;
     }
-    if( !text.compare("pad") ) {
+    else if( !text.compare("pad") ) {
       vars->method = mod_trc_add_ens::METHOD_PAD;
       if( param->exists("delete") ) {
         string text;
@@ -102,6 +104,10 @@ void init_mod_trc_add_ens_( csParamManager* param, csInitPhaseEnv* env, csLogWri
     if( !hdef->headerExists(text) ) {
       log->error("Trace header does not exist: %s", text.c_str() );
     }
+    if( !hdef->headerExists("pad_flag") ) {
+      hdef->addHeader(cseis_geolib::TYPE_INT, "pad_flag", "Padded trace? 0:no, 1:yes");
+    }
+    vars->hdrID_padFlag = hdef->headerIndex("pad_flag");
     vars->hdrID_pad   = hdef->headerIndex(text);
     vars->hdrType_pad = hdef->headerType(text);
     if( vars->hdrType_pad == TYPE_STRING || vars->hdrType_pad == TYPE_CHAR ) {
@@ -200,6 +206,7 @@ void exec_mod_trc_add_ens_(
       int* hdrValueBuffer = new int[numTracesOrig];
       for( int itrc = 0; itrc < numTracesOrig; itrc++ ) {
         csTraceHeader* trcHdr = traceGather->trace(itrc)->getTraceHeader();
+        trcHdr->setIntValue( vars->hdrID_padFlag, 0 );
         int value = trcHdr->intValue(vars->hdrID_pad);
         if( (value-vars->start.intValue()) % vars->inc.intValue() != 0 ) {
           log->error("Inconsistent trace header value: %d. Expected values should fit into the specified padding range from %d to %d, inc %d.",
@@ -222,10 +229,12 @@ void exec_mod_trc_add_ens_(
 //      }
 
       if( numTracesOrig != vars->numTraces ) {
+	//	fprintf(stdout,"Num traces orig: %d  / %d\n", numTracesOrig, vars->numTraces);
         traceGather->createTraces( numTracesOrig, vars->numTraces-numTracesOrig, hdef, shdr->numSamples );
         csTraceHeader* trcHdrOrig = traceGather->trace(0)->getTraceHeader();
         for( int itrc = numTracesOrig; itrc < vars->numTraces; itrc++ ) {
           traceGather->trace(itrc)->getTraceHeader()->copyFrom( trcHdrOrig );
+          traceGather->trace(itrc)->getTraceHeader()->setIntValue( vars->hdrID_padFlag, 1 );
           float* samples = traceGather->trace(itrc)->getTraceSamples();
           for( int isamp = 0; isamp < shdr->numSamples; isamp++ ) {
             samples[isamp] = vars->value;
@@ -235,6 +244,7 @@ void exec_mod_trc_add_ens_(
         int currentTrcHdrValue = 0;
         int indexInputTrace    = 0;
         int indexNewTrace      = numTracesOrig;
+	//	fprintf(stdout,"Num traces orig: %d\n", numTracesOrig);
         for( int itrc = 0; itrc < vars->numTraces; itrc++ ) {
           int value = vars->start.intValue() + itrc*vars->inc.intValue();
           if( indexInputTrace < numTracesOrig ) {
@@ -259,6 +269,8 @@ void exec_mod_trc_add_ens_(
               }
             }
             else {
+	      //	      fprintf(stdout," CHECK %d %d %d\n", itrc, indexNewTrace, traceGather->numTraces() );
+	      //	      fflush(stdout);
               tracePtr[itrc] = traceGather->trace( indexNewTrace );
               tracePtr[itrc]->getTraceHeader()->setIntValue( vars->hdrID_pad, value );
               indexNewTrace += 1;

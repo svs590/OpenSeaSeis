@@ -21,12 +21,13 @@ public:
   ~csRSFWriter();
   //
   void initialize( csRSFHeader const* );
+  void openFile();
+  void closeFile();
 
   /// @return number of bytes per sample
   inline int sampleByteSize() const { return mySampleByteSize; }
   inline int totalTraceSize() const { return myTotalTraceSize; }
   inline char const* filename() const { return myFilename.c_str(); }
-  void closeFile();
   inline char const* getFilename() const { return myFilename.c_str(); }
 
   void writeNextTrace( cseis_geolib::byte_t const* buffer, int nSamples, double valDim2, double valDim3 );
@@ -78,7 +79,6 @@ private:
 // Private access methods
 //
 private:
-  void openFile();
   void writeRSFHdr();
 
   csRSFWriter();

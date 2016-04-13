@@ -30,6 +30,9 @@ using std::string;
 using std::memcpy;
 
 void convertToFloat_20bit( short const* in, float* out, int numSamples );
+void convertToFloat_24bit( unsigned char const* in, float* out, int numSamples );
+
+#define SIGNBIT (1UL << 23)
 
 csSegdReader::csSegdReader() {
   myRecordingSystemID = UNKNOWN;
@@ -728,6 +731,10 @@ bool csSegdReader::getNextTrace( float* trace, commonTraceHeaderStruct& comTrcHd
     case 8015:
       convertToFloat_20bit( reinterpret_cast<short*>(&myBuffer_oneRecord[bytePosData]), trace, numSamples );
       break;
+    case 8036:
+      fprintf(stdout,"Byte pos %d  numSamples %d  byteSize %d\n", bytePosData, numSamples, dataByteSize);
+      convertToFloat_24bit( reinterpret_cast<unsigned char*>(&myBuffer_oneRecord[bytePosData]), trace, numSamples );
+      break;
     }
   
     for( int i = 0; i < numSamples; i++ ) {
@@ -914,6 +921,7 @@ void csSegdReader::dumpFileHeaders( int dumpFlag, std::ofstream* outStream ) {
     myTraceHdrExtension->dump( *outStream );
   }
   // START TEMP
+  /*
   *outStream << "-------- General header 1 " << myBytePos.generalHdr1 << endl;
   dumpRawHex( *outStream, &myBuffer_oneRecord[myBytePos.generalHdr1], 40 );
   *outStream << "-------- General header 2 " << myBytePos.generalHdr2 << endl;
@@ -928,6 +936,7 @@ void csSegdReader::dumpFileHeaders( int dumpFlag, std::ofstream* outStream ) {
   dumpRawHex( *outStream, &myBuffer_oneRecord[myBytePos.externalHdr], 40 );
   *outStream << "-------- First trace header  " << myBytePos.firstTrace << ", size: " << csTraceHeader::BLOCK_SIZE << endl;
   dumpRawHex( *outStream, &myBuffer_oneRecord[myBytePos.firstTrace], 20 );
+  */
   if( myNumTraceHdrExtensions > 0 ) {
     *outStream << "-------- Trace header extension " << (myBytePos.firstTraceExt) << " Size: " << csBaseHeader::BLOCK_SIZE*myNumTraceHdrExtensions << endl;
     dumpRawHex( *outStream, &myBuffer_oneRecord[myBytePos.firstTraceExt], csBaseHeader::BLOCK_SIZE*myNumTraceHdrExtensions );
@@ -984,6 +993,20 @@ void convertToFloat_20bit( short const* in, float* out, int numSamples ) {
 
   }
 }
+
+void convertToFloat_24bit( unsigned char const* in, float* out, int numSamples ) {
+  int counter = 0;
+  for( int isamp = 0; isamp < numSamples; isamp++ ) {
+    unsigned long accum;
+    accum = (unsigned long)in[counter+0] << 16; // Top most byte
+    accum |= (unsigned)in[counter+1] << 8;
+    accum |= in[counter+2];
+    long val = (long)(accum ^ SIGNBIT) - (long)SIGNBIT;
+    out[isamp] = (float)val;
+    counter += 3;
+  }
+}
+
 int csSegdReader::numTraces() const {
   if( myConfig.readAuxTraces ) {
     return myComFileHdr.totalNumChan;

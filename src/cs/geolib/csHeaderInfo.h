@@ -47,7 +47,12 @@ public:
   std::string name;
   std::string description;
 private:
-  csHeaderInfo( csHeaderInfo const& obj );
+  csHeaderInfo( csHeaderInfo const& obj ) {
+    name = obj.name;
+    type = obj.type;
+    description = obj.description;
+    nElements = obj.nElements;
+  }
 
   /*  bool operator==( const csHeaderInfo& obj ) const;
       bool operator!=( const csHeaderInfo& obj ) const;

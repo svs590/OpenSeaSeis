@@ -23,16 +23,18 @@ namespace mod_fft {
     bool dump;           // True if FFT result shall be dumped to log
     float T_interval;    // Interval delta T. 1/T is the sampling interval in the frequency domain
     int direction;       // Direction of transform: 'forward' or 'reverse'
-    int sampleIntIn;     // Sample interval in input trace
+    float sampleIntIn;     // Sample interval in input trace
     int numSamplesIn;
 //    double* bufferReal;  // Buffer for real part (of length numFFTSamples)
 //    double* bufferImag;  // Buffer for imaginary part (of length numFFTSamples)
     int taperType;
     int taperLengthInSamples;     // Taper length in number of samples (from 0 to 1)
     int output;
-    bool normalize;      // Normalize data: Yes or no?
+    int normFunction;
+    int normFlag;       // NormFlag data: Yes or no, ..including zero values?
     double normScalar;   // Normalisation scalar to be applied before inverse FFT.
-                         // This scalar accounts for zeros that may have been padded to input trace
+                         // This scalar accounts for the number of samples in input time window.
+                         // It can also account for zeros that may have been padded to input trace.
     cseis_geolib::csFFTTools* fftTool;
     int fftDataType;
     bool outputEven;
@@ -41,6 +43,11 @@ namespace mod_fft {
   static const int TAPER_COSINE  = 1;
   static const int TAPER_HANNING = 2;
   static const int TAPER_BLACKMAN = 3;
+  static const int NORM_NO   = 1;
+  static const int NORM_YES  = 2;
+  static const int NORM_ZERO = 3;
+  static const int NORM_NORMAL = 10;
+  static const int NORM_SQRT   = 11;
 }
 using namespace mod_fft;
 
@@ -65,11 +72,12 @@ void init_mod_fft_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* log
   vars->T_interval     = 0;
   vars->direction      = csFFTTools::FORWARD;
   vars->sampleIntIn    = shdr->sampleInt;
-  vars->taperType      = TAPER_NONE;
-  vars->taperLengthInSamples = 10;
+  vars->taperType      = mod_fft::TAPER_NONE;
+  vars->taperLengthInSamples = 20 / shdr->sampleInt;
   vars->fftDataType       = FX_NONE;
   vars->normScalar     = 1.0;
-  vars->normalize      = false;
+  vars->normFlag       = mod_fft::NORM_NO;
+  vars->normFunction   = mod_fft::NORM_SQRT;
   vars->fftTool        = NULL;
   vars->outputEven     = false;
 
@@ -105,31 +113,45 @@ void init_mod_fft_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* log
   if( param->exists("norm") ) {
     param->getString("norm", &text);
     if( !text.compare("yes") ) {
-      vars->normalize = true;
+      vars->normFlag = mod_fft::NORM_YES;
     }
     else if( !text.compare("no") ) {
-      vars->normalize = false;
+      vars->normFlag = mod_fft::NORM_NO;
+    }
+    else if( !text.compare("zero") ) {
+      vars->normFlag = mod_fft::NORM_ZERO;
     }
     else {
       log->error("Unknown option: %s", text.c_str());
     }
+    if( param->getNumValues("norm") > 1 ) {
+      param->getString("norm", &text, 1);
+      if( !text.compare("normal") ) {
+        vars->normFunction = mod_fft::NORM_NORMAL;
+      }
+      else if( !text.compare("sqrt") ) {
+        vars->normFunction = mod_fft::NORM_SQRT;
+      }
+      else {
+        log->error("Unknown option: %s", text.c_str());
+      }
+    }
   }
-
 //-------------------------------------------
   if( param->exists("taper_type") ) {
     param->getString("taper_type", &text);
     if( !text.compare("none") ) {
-      vars->taperType = TAPER_NONE;
+      vars->taperType = mod_fft::TAPER_NONE;
     }
     else if( !text.compare("cos") ) {
-      vars->taperType = TAPER_COSINE;
+      vars->taperType = mod_fft::TAPER_COSINE;
     }
     else if( !text.compare("hanning") ) {
-      vars->taperType = TAPER_HANNING;
+      vars->taperType = mod_fft::TAPER_HANNING;
       vars->taperLengthInSamples = shdr->numSamples/2;
     }
     else if( !text.compare("blackman") ) {
-      vars->taperType = TAPER_BLACKMAN;
+      vars->taperType = mod_fft::TAPER_BLACKMAN;
       vars->taperLengthInSamples = shdr->numSamples/2;
     }
     else {
@@ -137,11 +159,13 @@ void init_mod_fft_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* log
     }
   }
   if( param->exists("taper_len") ) {
-    if( vars->taperType == TAPER_HANNING ) {
+    if( vars->taperType == mod_fft::TAPER_HANNING ) {
       log->error("Cannot specify user defined taper length. For Hanning taper, taper length is fixed to half the trace length");
     }
     else {
-      param->getInt("taper_len", &vars->taperLengthInSamples);
+      float taperLength;
+      param->getFloat("taper_len", &taperLength);
+      vars->taperLengthInSamples = (int)round( taperLength / shdr->sampleInt );
     }
   }
 
@@ -173,6 +197,9 @@ void init_mod_fft_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* log
       else if( !text.compare("amp") ) {
         vars->fftDataType = FX_AMP;
       }
+      else if( !text.compare("phase") ) {
+        vars->fftDataType = FX_PHASE;
+      }
       else if( !text.compare("psd") ) {
         vars->fftDataType = FX_PSD;
       }
@@ -196,6 +223,9 @@ void init_mod_fft_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* log
   //
 
   vars->numSamplesIn = shdr->numSamples;
+  if( vars->normFlag != mod_fft::NORM_NO ) {
+    vars->normScalar = 1.0 / vars->numSamplesIn;
+  }
   if( vars->direction == csFFTTools::FORWARD ) {
     if( shdr->domain != DOMAIN_XT && shdr->domain != DOMAIN_XD && !override_domain ) {
       log->error("Current trace is not in XT/XD domain. FFT forward transform not possible. Actual domain: %s (%d)", csGeolibUtils::domain2Text(shdr->domain), shdr->domain );
@@ -215,7 +245,7 @@ void init_mod_fft_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* log
     if( vars->fftDataType == FX_AMP_PHASE ) {
       shdr->numSamples = numFFTSamples + 2;  // numFFTSamples/2+1 samples for both amplitude and phase
     }
-    else if( vars->fftDataType == FX_AMP || vars->fftDataType == FX_PSD ) {
+    else if( vars->fftDataType == FX_AMP || vars->fftDataType == FX_PSD || vars->fftDataType == FX_PHASE ) {
       shdr->numSamples = numFFTSamples/2+1;
       if( vars->outputEven ) shdr->numSamples = numFFTSamples/2;
     }
@@ -245,6 +275,7 @@ void init_mod_fft_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* log
     else { // if( shdr->fftDataType != FX_REAL_IMAG && shdr->fftDataType != FX_AMP_PHASE ) {
       string text = "UNKNOWN";
       if( shdr->fftDataType == FX_AMP ) text = "AMP";
+      else if( shdr->fftDataType == FX_PHASE ) text = "PHASE";
       else if( shdr->fftDataType == FX_PSD ) text = "PSD";
       log->error("Cannot perform inverse transform due to lack of information: Data is neither of type AMP_PHASE or REAL_IMAG. Actual type defined in super header: %s", text.c_str());
     }
@@ -255,8 +286,11 @@ void init_mod_fft_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* log
     }
 
     vars->fftDataType = shdr->fftDataType;
-    if( vars->normalize ) vars->normScalar = (double)shdr->numSamplesXT/(double)shdr->numSamples;
-    if( edef->isDebug() ) log->line("FFT Inverse norm scalar: %f, num XT samples: %d, num FFT samples: %d\n", vars->normScalar, shdr->numSamplesXT, shdr->numSamples );
+
+    if( vars->normFlag != mod_fft::NORM_NO ) {
+      vars->normScalar = shdr->numSamplesXT / 1.0;
+    }
+    log->line("FFT Inverse norm scalar: %f, num XT samples: %d, num FFT samples: %d\n", vars->normScalar, shdr->numSamplesXT, shdr->numSamples );
     shdr->numSamples   = shdr->numSamplesXT;
     shdr->sampleInt    = shdr->sampleIntXT;
     shdr->numSamplesXT = 0;
@@ -306,6 +340,7 @@ bool exec_mod_fft_(
   }
 
   float* samples = trace->getTraceSamples();
+  float normScalarCurrent = vars->normScalar;
 
   //----------------------------------------------------------------------------
   //----------------------------------------------------------------------------
@@ -314,8 +349,18 @@ bool exec_mod_fft_(
   //
   //
   if( vars->direction == csFFTTools::FORWARD ) {
+
+    if( vars->normFlag == mod_fft::NORM_ZERO ) {
+      int numSamplesNonZero = vars->numSamplesIn;
+      for( int i = 0; i < vars->numSamplesIn; i++ ) {
+        if( samples[i] == 0.0 ) numSamplesNonZero -= 1;
+      }
+      if( numSamplesNonZero == 0 ) numSamplesNonZero = 1;
+      normScalarCurrent = 1.0 / (double)numSamplesNonZero;
+    }
+
     // (1) Apply taper to input trace
-    if( vars->taperType == TAPER_COSINE || vars->taperType == TAPER_HANNING ) {
+    if( vars->taperType == mod_fft::TAPER_COSINE || vars->taperType == mod_fft::TAPER_HANNING ) {
       int nSteps = vars->taperLengthInSamples;
       for( int i = 0; i < nSteps; i++ ) {
         float scalar = cos( M_PI_2 * (float)(nSteps-i)/(float)nSteps );
@@ -325,8 +370,27 @@ bool exec_mod_fft_(
         float scalar = cos( M_PI_2 * (float)(nSteps-vars->numSamplesIn+i+1)/(float)nSteps );
         samples[i] *= scalar;
       }
+      if( vars->normFlag != mod_fft::NORM_NO ) {
+        float weightSum = 0.0;
+        int weightCounter = 0;
+        for( int i = 0; i < nSteps; i++ ) {
+          if( vars->normFlag == mod_fft::NORM_ZERO && samples[i] == 0 ) continue;
+          float scalar = cos( M_PI_2 * (float)(nSteps-i)/(float)nSteps );
+          weightSum += scalar;
+          weightCounter += 1;
+        }
+        for( int i = vars->numSamplesIn-nSteps; i < vars->numSamplesIn; i++ ) {
+          if( vars->normFlag == mod_fft::NORM_ZERO && samples[i] == 0 ) continue;
+          float scalar = cos( M_PI_2 * (float)(nSteps-vars->numSamplesIn+i+1)/(float)nSteps );
+          weightSum += scalar;
+          weightCounter += 1;
+        }
+        //        normScalarCurrent *= ( (weightSum+vars->numSamplesIn-weightCounter)/vars->numSamplesIn );
+        // Normalization set up to work also if zero samples shall be taken into account
+        normScalarCurrent = 1.0 / (weightSum+(1.0/normScalarCurrent)-weightCounter);
+      }
     }
-    else if( vars->taperType == TAPER_BLACKMAN ) {
+    else if( vars->taperType == mod_fft::TAPER_BLACKMAN ) {
       float alpha = 0.16;
       float a0 = 0.5 * (1.0 - alpha);
       float a1 = 0.5;
@@ -335,6 +399,19 @@ bool exec_mod_fft_(
         float piFactor = (2.0 * M_PI) * (float)i / (float)(vars->numSamplesIn - 1);
         float weight = a0 - a1*cos( piFactor ) + a2*cos( 2 * piFactor );
         samples[i] *= weight;
+      }
+      if( vars->normFlag != mod_fft::NORM_NO ) {
+        float weightSum = 0.0;
+        int weightCounter = 0;
+        for( int i = 0; i < vars->numSamplesIn; i++ ) {
+          if( vars->normFlag == mod_fft::NORM_ZERO && samples[i] == 0 ) continue;
+          float piFactor = (2.0 * M_PI) * (float)i / (float)(vars->numSamplesIn - 1);
+          float weight = a0 - a1*cos( piFactor ) + a2*cos( 2 * piFactor );
+          weightSum += weight;
+          weightCounter += 1;
+        }
+        normScalarCurrent = 1.0 / (weightSum+(1.0/normScalarCurrent)-weightCounter);
+        //        normScalarCurrent *= ( (weightSum+vars->numSamplesIn-weightCounter) / vars->numSamplesIn );
       }
     }
 
@@ -352,10 +429,16 @@ bool exec_mod_fft_(
     // NOTE: Amplitudes for positive freq amplitude spectrum have to be multiplied by 2 for all frequencies except 0Hz and Nyquist.
     //
 
-    double normSpectralDensity = 1.0;
-
     bool success = false;
     int numFFTSamples  = vars->fftTool->numFFTSamples();
+
+    if( vars->fftDataType != FX_PSD ) {
+      if( vars->normFunction == mod_fft::NORM_SQRT ) normScalarCurrent = sqrt( normScalarCurrent );
+    }
+    else if( vars->normFunction != mod_fft::NORM_SQRT ) {
+      normScalarCurrent = pow( normScalarCurrent, 2 );
+    }
+
     if( vars->fftDataType == FX_REAL_IMAG || vars->fftDataType == FX_PSD ) {
       success = vars->fftTool->fft_forward( samples );
       if( vars->fftDataType == FX_PSD ) {
@@ -365,35 +448,32 @@ bool exec_mod_fft_(
         if( !vars->outputEven ) {
           numValues += 1;
         }
-        normSpectralDensity = 1.0;
-        if( vars->normalize ) {
-          int numSamplesNonZero = 0;
-          for( int i = 0; i < vars->numSamplesIn; i++ ) {
-            if( samples[i] != 0.0 ) numSamplesNonZero += 1;
-          }
-          if( numSamplesNonZero == 0 ) numSamplesNonZero = 1;
-          normSpectralDensity = 1.0 / (numSamplesNonZero * (1000.0/vars->sampleIntIn));
-        }
         // Multiply complex specturm with conjugate complex = (R + I) * (R - I)
         for( int is = 0; is < numValues; is++ ) {
-          samples[is] = 2.0 * ( real[is]*real[is] + imag[is]*imag[is] ) * normSpectralDensity;
+          samples[is] = 2.0 * ( real[is]*real[is] + imag[is]*imag[is] );
         }
-        //if( !vars->outputEven ) {
-        //  samples[numFFTSamples/2] = sqrt( real[numFFTSamples/2]*real[numFFTSamples/2] * normSpectralDensity; // Nyquist
-        //}
-      }
+        if( vars->normFlag != mod_fft::NORM_NO ) {
+          for( int is = 0; is < numValues; is++ ) {
+            samples[is] *= normScalarCurrent;
+          }
+        }
+      } // END: if FX_PSD
       else { //  if( vars->fftDataType == FX_REAL_IMAG ) {
-        if( vars->normalize ) {
-          normSpectralDensity = 1.0 / sqrt( (double)vars->numSamplesIn );
+        if( vars->normFlag != mod_fft::NORM_NO ) {
         }
         double const* real = vars->fftTool->realData();
         double const* imag = vars->fftTool->imagData();
         for( int is = 0; is < numFFTSamples; is++ ) {
-          samples[is]               = (float)(real[is]*normSpectralDensity);
-          samples[is+numFFTSamples] = (float)(imag[is]*normSpectralDensity);
+          samples[is]               = (float)real[is];
+          samples[is+numFFTSamples] = (float)imag[is];
+        }
+        if( vars->normFlag != mod_fft::NORM_NO ) {
+          for( int is = 0; is < 2*numFFTSamples; is++ ) {
+            samples[is] *= normScalarCurrent;
+          }
         }
       }
-    }
+    } // END: if FX_PSD || FX_REAL_IMAG
     else {
       int numSamplesNormalise = shdr->numSamples;
       if( vars->fftDataType == FX_AMP_PHASE ) {
@@ -403,10 +483,12 @@ bool exec_mod_fft_(
       else if( vars->fftDataType == FX_AMP ) {
         success = vars->fftTool->fft_forward( samples, &samples[0], false );
       }
-      if( vars->normalize ) {
-        normSpectralDensity = 1.0 / sqrt( (double)vars->numSamplesIn );
+      else if( vars->fftDataType == FX_PHASE ) {
+        success = vars->fftTool->fft_forward( samples, NULL, &samples[0], false );
+      }
+      if( vars->normFlag != mod_fft::NORM_NO ) {
         for( int is = 0; is < numSamplesNormalise; is++ ) {
-          samples[is] *= normSpectralDensity;
+          samples[is] *= normScalarCurrent;
         }
       }
     }
@@ -414,12 +496,25 @@ bool exec_mod_fft_(
       log->warning("FFT transform failed for unknown reasons...");
       return false;
     }
-  }
+  } // END: if fft forward
   //------------------------------------------------------------------------------------
   // Inverse transform.
   // Assumes that forward transform has been applied previously, using option REAL_IMAGE or AMP_PHASE
   //
   else {  // INVERSE
+    if( vars->normFlag != mod_fft::NORM_NO ) {
+      double normValue = sqrt(normScalarCurrent);
+      if( vars->fftDataType == FX_REAL_IMAG ) {
+        normValue = sqrt(normScalarCurrent);
+      }
+      int numSamplesNormalise = vars->numSamplesIn;
+      if( vars->fftDataType == FX_AMP_PHASE ) {
+        numSamplesNormalise = vars->numSamplesIn/2;
+      }
+      for( int is = 0; is < numSamplesNormalise; is++ ) {
+        samples[is] *= normValue;
+      }
+    }
     bool success = vars->fftTool->fft_inverse( samples, vars->fftDataType );
     if( !success ) {
       log->warning("FFT transform failed for unknown reasons...");
@@ -454,28 +549,33 @@ void params_mod_fft_( csParamDef* pdef ) {
   pdef->addOption( "yes", "Dump FFT values to log file" );
   pdef->addOption( "no", "Do not dump FFT values" );
 
-  pdef->addParam( "norm", "Normalize output", NUM_VALUES_FIXED );
+  pdef->addParam( "norm", "Normalize output", NUM_VALUES_VARIABLE );
   pdef->addValue( "no", VALTYPE_OPTION );
-  pdef->addOption( "yes", "Normalize output values", "Example: Using the same input data but with different amount of added zeros, the amplitude spectrum will look exactly the same for the same output frequency" );
+  pdef->addOption( "yes", "Normalize output values" );
   pdef->addOption( "no", "Do not normalize output values" );
+  pdef->addOption( "zero", "Normalize output values, take into account non-zero samples only", "Using the same input data but with different amount of added zeros, the amplitude spectrum will look exactly the same for the same output frequency" );
+  pdef->addValue( "sqrt", VALTYPE_OPTION );
+  pdef->addOption( "sqrt", "Apply sqrt normalization: Appropriate for non-stationary noise" );
+  pdef->addOption( "normal", "Apply 'normal' normalization by number of samples: Appropriate for stationary signal" );
 
-  pdef->addParam( "taper_type", "Taper type of taper to apply to input trace", NUM_VALUES_FIXED );
+  pdef->addParam( "taper_type", "Type of taper to apply to input trace", NUM_VALUES_FIXED );
   pdef->addValue( "none", VALTYPE_OPTION );
   pdef->addOption( "none", "Do not apply any taper to input trace" );
   pdef->addOption( "cos", "Apply cosine taper to input trace" );
   pdef->addOption( "hanning", "Apply 'Hanning' cosine taper to input trace. Taper length is 1/2 trace" );
   pdef->addOption( "blackman", "Apply 'Blackman' taper (alpha=0.16) to input trace" );
 
-  pdef->addParam( "taper_len", "Taper length in number of samples", NUM_VALUES_FIXED );
-  pdef->addValue( "10", VALTYPE_NUMBER, "Length in number of samples" );
+  pdef->addParam( "taper_len", "Taper length [ms]", NUM_VALUES_FIXED );
+  pdef->addValue( "20", VALTYPE_NUMBER, "Taper length [ms]" );
 
   pdef->addParam( "output", "Output options for forward transform", NUM_VALUES_FIXED );
   pdef->addValue( "amp_phase", VALTYPE_OPTION );
   pdef->addOption( "amp_phase", "Output amplitude and phase spectrum, concatenated into one trace" );
-  pdef->addOption( "amp", "Output amplitude spectrum only" );
+  pdef->addOption( "amp", "Output amplitude spectrum" );
   pdef->addOption( "real_imag", "Output real and imaginary values concatenated into one trace" );
   pdef->addOption( "psd", "Output PSD spectrum" );
   pdef->addOption( "psd_even", "Output PSD spectrum. Omit value at Nyquist frequency, i.e. output 2^N samples." );
+  pdef->addOption( "phase", "Output phase spectrum" );
 
   pdef->addParam( "override", "Override domain", NUM_VALUES_FIXED );
   pdef->addValue( "no", VALTYPE_OPTION );

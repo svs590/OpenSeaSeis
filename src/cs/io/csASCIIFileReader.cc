@@ -15,17 +15,24 @@ using namespace cseis_geolib;
 
 ASCIIParam::ASCIIParam() {
   sampleList    = new cseis_geolib::csVector<float>(512);
+  timeList      = new cseis_geolib::csVector<float>(10);
   sampleInt     = 0.0;
   srcDepth      = 0;
   timeFirstSamp = 0;
   timeLastSamp  = 0;
   myNumSamples  = 0;
+  traceNumber   = 1;
 }
 ASCIIParam::~ASCIIParam() {
   if( sampleList != NULL ) {
-    sampleList->clear();
+    //    sampleList->clear();
     delete sampleList;
     sampleList = NULL;
+  }
+  if( timeList != NULL ) {
+    //    timeList->clear();
+    delete timeList;
+    timeList = NULL;
   }
 }
 float ASCIIParam::sample(int index) const {
@@ -34,6 +41,12 @@ float ASCIIParam::sample(int index) const {
   }
   return sampleList->at(index);
 }
+float ASCIIParam::time(int index) const {
+  if( timeList == NULL || (index < 0 || index >= timeList->size()) ) {
+    throw( cseis_geolib::csException("ASCIIParam::time(): Program bug: Wrong index passed") );
+  }
+  return timeList->at(index);
+}
 int ASCIIParam::numSamples() const {
   return myNumSamples;
 }
@@ -41,8 +54,13 @@ float const* ASCIIParam::getSamples() const {
   if( sampleList == NULL ) return NULL;
   return sampleList->toArray();
 }
+float const* ASCIIParam::getTimes() const {
+  if( timeList == NULL ) return NULL;
+  return timeList->toArray();
+}
 void ASCIIParam::clear() {
   if( sampleList != NULL ) sampleList->clear();
+  if( timeList != NULL ) timeList->clear();
 }
 
 //--------------------------------------------------------------------------------
@@ -52,7 +70,16 @@ csASCIIFileReader::csASCIIFileReader( std::string const& filename, int format ) 
   myCurrentTraceIndex = 0;
   myCounterLines = 0;
   myIsAtEOF   = false;
-  myFileASCII = fopen( filename.c_str(), "r" );  myCurrentTraceIndex = 0;
+  myFileASCII = fopen( filename.c_str(), "r" );
+  myNumMinColumns = 2;
+  myColIndexTime  = 0;
+  myColIndexValue = 1;
+  myColIndexTrace = -1;
+  myIsOneSampleWaiting = false;
+  mySampleValueWaiting = 0;
+  myTimeValueWaiting = 0;
+  myTraceIndexWaiting = 0;
+
 
   if( myFileASCII == NULL ) {
     throw( cseis_geolib::csException("Could not open file '%s'", filename.c_str() ) );
@@ -71,6 +98,13 @@ bool csASCIIFileReader::isAtEOF() const {
 }
 
 //--------------------------------------------------------------------------------
+bool csASCIIFileReader::initialize( ASCIIParam* param, int colIndexTime, int colIndexValue, int colIndexTrace ) {
+  myColIndexTime  = colIndexTime;
+  myColIndexValue = colIndexValue;
+  myColIndexTrace = colIndexTrace;
+  myNumMinColumns = std::max( myColIndexTime, myColIndexValue ) + 1;
+  return initialize( param );
+}
 
 bool csASCIIFileReader::initialize( ASCIIParam* param ) {
   if( myCurrentTraceIndex > 0 ) return false;
@@ -80,6 +114,7 @@ bool csASCIIFileReader::initialize( ASCIIParam* param ) {
     cseis_geolib::csVector<std::string> tokenList;
     int counter = 0;
     bool isNucleusPlus = false;
+    bool isNucleusWav  = false;
     while( fgets( myBuffer, 1024, myFileASCII ) != NULL && isReadingHdr ) {
       counter += 1;
       tokenList.clear();
@@ -88,7 +123,10 @@ bool csASCIIFileReader::initialize( ASCIIParam* param ) {
         if( !tokenList.at(5).compare("Nucleus+") ) {
           isNucleusPlus = true;
         }
-        else if( !isNucleusPlus ) {
+        else if( !strncmp(myBuffer,"THIS IS A WAVELET LISTING",25) ) {
+          isNucleusWav = true;
+        }
+        else if( !isNucleusPlus && !isNucleusWav) {
           if( !strncmp(myBuffer,"Source depth",12) ) {
             param->srcDepth = atof(tokenList.at(3).c_str());
           }
@@ -104,7 +142,7 @@ bool csASCIIFileReader::initialize( ASCIIParam* param ) {
             isReadingHdr = false;
           }
         }
-        else { // This is NUcleus+ version
+        else if( isNucleusPlus ) { // This is a Nucleus+ signature
           if( !strncmp(myBuffer,"Source average depth",20) ) {
             param->srcDepth = atof(tokenList.at(5).c_str());
           }
@@ -117,6 +155,15 @@ bool csASCIIFileReader::initialize( ASCIIParam* param ) {
             }
           }
           else if( !strncmp(myBuffer,"Time is increasing",18) ) {
+            isReadingHdr = false;
+          }
+        }
+        else { // This is a Nucleus+ wavelet file
+          if( !strncmp(myBuffer,"Sample interval",15) ) {
+            param->sampleInt = atof(tokenList.at(4).c_str());
+          }
+          else if( !strncmp(myBuffer,"Index of time zero",18) ) {
+            param->timeFirstSamp = (atof(tokenList.at(4).c_str())-1) * param->sampleInt;
             isReadingHdr = false;
           }
         }
@@ -140,15 +187,24 @@ bool csASCIIFileReader::initialize( ASCIIParam* param ) {
   else if( myFormat == FORMAT_COLUMNS ) {
     csVector<double> timeList;
     csVector<float> sampleList;
-    readOneTraceColumnFormat( &timeList, &sampleList, numeric_limits<int>::max(), 1 );
+    readOneTraceColumnFormat( &timeList, &sampleList, numeric_limits<int>::max(), &param->traceNumber, false );
     myNumSamples = sampleList.size();
     param->myNumSamples = myNumSamples;
     if( myNumSamples == 0 ) {
-      throw( csException("Input file does not contain any valid data") );
+      throw( csException("Input file does not contain any valid data. First trace contains 0 samples") );
     }
     param->timeFirstSamp = timeList.at(0);
     param->timeLastSamp  = timeList.at(myNumSamples-1);
     param->sampleInt = (float)( timeList.at(1) - timeList.at(0) );
+    rewind( myFileASCII );
+  }
+  else if( myFormat == FORMAT_SPIKOGRAM ) {
+    csVector<float> timeList;
+    csVector<float> sampleList;
+    readOneTraceSpikogramFormat( &timeList, &sampleList );
+    param->myNumSamples = sampleList.size();
+    param->timeFirstSamp = timeList.at(0);
+    param->timeLastSamp  = timeList.at(param->myNumSamples);
     rewind( myFileASCII );
   }
   //----------------------------------------------------------------------
@@ -248,10 +304,13 @@ bool csASCIIFileReader::readNextTrace( ASCIIParam* param ) {
   }
   else if( myFormat == FORMAT_COLUMNS ) {
     csVector<double> timeList;
-    bool success = readOneTraceColumnFormat( &timeList, param->sampleList, myNumSamples, myCurrentTraceIndex+1 );
+    //    bool success = readOneTraceColumnFormat( &timeList, param->sampleList, myNumSamples, myCurrentTraceIndex+1 );
+    bool success = readOneTraceColumnFormat( &timeList, param->sampleList, myNumSamples, &param->traceNumber );
     if( !success ) {
       throw( csException("Inconsistent data in input file. Terminated while reading trace #%d, number of samples: %d, expected number of samples: %d",
-                         myCurrentTraceIndex+1, param->sampleList->size(), myNumSamples) );
+                         param->traceNumber, param->sampleList->size(), myNumSamples) );
+      //      throw( csException("Inconsistent data in input file. Terminated while reading trace #%d, number of samples: %d, expected number of samples: %d",
+      //                         myCurrentTraceIndex+1, param->sampleList->size(), myNumSamples) );
     }
     if( param->sampleList->size() == 0 ) {
       retValue = false;
@@ -260,6 +319,23 @@ bool csASCIIFileReader::readNextTrace( ASCIIParam* param ) {
       param->timeFirstSamp = timeList.at(0);
       param->timeLastSamp  = timeList.at(timeList.size()-1);
       param->sampleInt = (float)( timeList.at(1) - timeList.at(0) );
+      retValue = true;
+    }
+  }
+  else if( myFormat == FORMAT_SPIKOGRAM ) {
+    bool success = readOneTraceSpikogramFormat( param->timeList, param->sampleList );
+    if( !success ) {
+      //      throw( csException("Inconsistent data in input file. Terminated while reading trace #%d, number of samples read: %d",
+      //                    myCurrentTraceIndex+1, param->sampleList->size() ) );
+      throw( csException("Inconsistent data in input file. Terminated while reading trace #%d, number of samples read: %d",
+                         param->traceNumber, param->sampleList->size() ) );
+    }
+    if( param->sampleList->size() == 0 ) {
+      retValue = false;
+    }
+    else {
+      param->timeFirstSamp = param->timeList->at(0);
+      param->timeLastSamp  = param->timeList->at(param->timeList->size()-1);
       retValue = true;
     }
   }
@@ -299,7 +375,8 @@ bool csASCIIFileReader::readNextTrace( ASCIIParam* param ) {
 bool csASCIIFileReader::readOneTraceColumnFormat( cseis_geolib::csVector<double>* timeList,
                                                   cseis_geolib::csVector<float>* sampleList,
                                                   int maxSamplesToRead,
-                                                  int traceIndexToRead )
+                                                  int* traceNumber,
+                                                  bool bailOut )
 {
   sampleList->clear();
   cseis_geolib::csVector<std::string> valueList;
@@ -307,32 +384,97 @@ bool csASCIIFileReader::readOneTraceColumnFormat( cseis_geolib::csVector<double>
   int counter = 0;
   double timePrev    = 0.0;
   double timeCurrent = 0.0;
-  int trcIndex = traceIndexToRead;
-
   while( counter < maxSamplesToRead && fgets( myBuffer, 1024, myFileASCII ) != NULL ) {
     valueList.clear();
     cseis_geolib::tokenize( myBuffer, valueList );
-    if( valueList.size() == 2 ) {
-      // Nothing..
-    }
-    else if( valueList.size() > 2 ) {
-      trcIndex = atoi( valueList.at(2).c_str() );
-    }
-    else if( valueList.size() == 0 ) {
+    if( valueList.size() == 0 ) {
       continue; // Skip blank lines
     }
-    else { //  if( valueList.size() < 2 ) {
+    else if( valueList.size() < myNumMinColumns ) {
       throw( cseis_geolib::csException("Incorrect number of columns (=%d) in input file, line #%d",
-                                       valueList.size(), counter+myCounterLines ));
+                                       valueList.size(), counter+myCounterLines+1 ));
     }
-    timeCurrent = atof( valueList.at(0).c_str() );
+    else if( myColIndexTrace >= 0 ) {
+      int tmpTraceNum = atoi( valueList.at(myColIndexTrace).c_str() );
+      if( counter == 0 ) *traceNumber = tmpTraceNum;
+      if( tmpTraceNum != *traceNumber ) { // New trace number encountered
+        if( bailOut ) {
+          throw( cseis_geolib::csException("Incorrect trace value: %d. Expected: %d, line #%d. Index of trace column: %d",
+                                           tmpTraceNum, *traceNumber, counter+myCounterLines+1, myColIndexTrace ));
+        }
+        return false;
+      }
+    }
+    else {
+      // Nothing
+    }
+    timeCurrent = atof( valueList.at(myColIndexTime).c_str() );
 
-    if( timeCurrent < timePrev || trcIndex != traceIndexToRead ) { // Time jumps backwards, new trace index --> New trace
+    if( timeCurrent < timePrev ) { // Time jumps backwards
+      if( bailOut ) {
+        throw( cseis_geolib::csException("Incorrect time value found: %f. Previous time: %f, line #%d. Index of trace column: %d",
+                                         timeCurrent, timePrev, counter+myCounterLines+1, myColIndexTrace ));
+      }
       return false;
     }
     timeList->insertEnd(timeCurrent);
-    float sampleValue = atof( valueList.at(1).c_str() );
+    float sampleValue = atof( valueList.at(myColIndexValue).c_str() );
     sampleList->insertEnd( sampleValue );
+
+    counter += 1;
+  }
+  return true;
+}
+
+bool csASCIIFileReader::readOneTraceSpikogramFormat( cseis_geolib::csVector<float>* timeList,
+                                                     cseis_geolib::csVector<float>* sampleList )
+{
+  timeList->clear();
+  sampleList->clear();
+  cseis_geolib::csVector<std::string> valueList;
+
+  int trcIndexCurrent = -1;
+
+  if( myIsOneSampleWaiting ) {
+    sampleList->insertEnd( mySampleValueWaiting );
+    timeList->insertEnd( myTimeValueWaiting );
+    trcIndexCurrent = myTraceIndexWaiting;
+    myIsOneSampleWaiting = false;
+  }
+
+  int counter = 0;
+
+  while( fgets( myBuffer, 1024, myFileASCII ) != NULL ) {
+    valueList.clear();
+    cseis_geolib::tokenize( myBuffer, valueList );
+    if( valueList.size() == 0 ) {
+      continue; // Skip blank lines
+    }
+    else if( valueList.size() < myNumMinColumns ) {
+      throw( cseis_geolib::csException("Incorrect number of columns (=%d) in input file, line #%d",
+                                       valueList.size(), counter+myCounterLines ));
+    }
+    else if( myColIndexTrace >= 0 ) {
+      myTraceIndexWaiting = atoi( valueList.at(myColIndexTrace).c_str() );
+    }
+    else {
+      // Nothing
+    }
+    myTimeValueWaiting = atof( valueList.at(myColIndexTime).c_str() );
+    mySampleValueWaiting = atof( valueList.at(myColIndexValue).c_str() );
+    counter += 1;
+
+    if( myTraceIndexWaiting != trcIndexCurrent ) {
+      if( trcIndexCurrent < 0 ) {
+        trcIndexCurrent = myTraceIndexWaiting;
+      }
+      else {
+        myIsOneSampleWaiting = true;
+        break;
+      }
+    }
+    timeList->insertEnd( myTimeValueWaiting );
+    sampleList->insertEnd( mySampleValueWaiting );
 
     counter += 1;
   }

@@ -70,9 +70,37 @@ public:
     case DOMAIN_FX:
       return( "x-frequency" );
     case DOMAIN_FK:
-      return( "k-frquency" );
+      return( "k-frequency" );
     default:
       throw( csException("csGeolibUtils::domain2Text: Undefined domain type: %d", domain) );
+    }
+  }
+
+  static char const* fftDataType2Text( int fftDataType ) {
+    switch( fftDataType ) {
+    case 0:
+    case FX_NONE:
+      return( "None" );
+    case FX_PSD:
+      return( "Power spectrum" );
+    case FX_AMP:
+      return( "Amplitude spectrum" );
+    case FX_PHASE:
+      return( "Phase spectrum" );
+    case FX_AMP_PHASE:
+      return( "Amplitude/phase spectrum" );
+    case FX_REAL_IMAG:
+      return( "Real/imaginary spectrum" );
+    case FK_PSD:
+      return( "Power k-spectrum" );
+    case FK_AMP:
+      return( "Amplitude k-spectrum" );
+    case FK_AMP_PHASE:
+      return( "Amplitude/phase k-spectrum" );
+    case FK_REAL_IMAG:
+      return( "Real/imaginary k-spectrum" );
+    default:
+      throw( csException("csGeolibUtils::fftDataType2Text: Undefined data type: %d", fftDataType) );
     }
   }
 

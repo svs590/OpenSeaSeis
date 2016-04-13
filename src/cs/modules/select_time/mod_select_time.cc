@@ -24,7 +24,7 @@ using namespace std;
  */
 namespace mod_select_time {
   struct VariableStruct {
-		int numSamplesOrig;
+    int numSamplesOrig;
     int startSamp;
     int endSamp;
     int mode;
@@ -41,6 +41,7 @@ namespace mod_select_time {
     bool isDelTrace;
     float percentDelTrace_ratio;
     bool doTrim;
+    bool isShiftTrace;
   };
   static int const MODE_ABSOLUTE = 1;
   static int const MODE_RELATIVE = 2;
@@ -63,6 +64,7 @@ void init_mod_select_time_( csParamManager* param, csInitPhaseEnv* env, csLogWri
 
   edef->setExecType( EXEC_TYPE_SINGLETRACE );
 
+  vars->isShiftTrace = false;
   vars->startSamp = 0;
   vars->endSamp   = 0;
   vars->mode      = MODE_RELATIVE;
@@ -77,7 +79,7 @@ void init_mod_select_time_( csParamManager* param, csInitPhaseEnv* env, csLogWri
   vars->isTable         = false;
   vars->isDelTrace      = false;
   vars->percentDelTrace_ratio = 1.0;
-	vars->numSamplesOrig = shdr->numSamples;
+        vars->numSamplesOrig = shdr->numSamples;
   vars->doTrim = false;
 
   std::string text;
@@ -103,6 +105,22 @@ void init_mod_select_time_( csParamManager* param, csInitPhaseEnv* env, csLogWri
     }
     else if( !text.compare( "no" ) ) {
       vars->doTrim = false;
+    }
+    else {
+      log->line("Option not recognized: '%s'.", text.c_str());
+     env->addError();
+    }
+  }
+  if( param->exists("shift") ) {
+    param->getString( "shift", &text );
+    if( !text.compare( "yes" ) ) {
+      vars->isShiftTrace = true;
+      if( vars->mode == MODE_ABSOLUTE ) {
+        log->error("Shift trace cannot be applied for absolute time selection");
+      }
+    }
+    else if( !text.compare( "no" ) ) {
+      vars->isShiftTrace = false;
     }
     else {
       log->line("Option not recognized: '%s'.", text.c_str());
@@ -152,6 +170,10 @@ void init_mod_select_time_( csParamManager* param, csInitPhaseEnv* env, csLogWri
 
   //---------------------------------------------------------
   if( param->exists("table") ) {
+    if( vars->isShiftTrace ) {
+      log->error("Trace shift is not possile to perform when specifying start/end times in a table");
+    }
+
     csSort<double> sortObj;
 
     vars->isTable = true;
@@ -251,28 +273,61 @@ void init_mod_select_time_( csParamManager* param, csInitPhaseEnv* env, csLogWri
     catch( csException& exc ) {
       log->error("Error when initializing input table '%s':\n", text.c_str(), exc.getMessage() );
     }
-    vars->hdrID_time_samp1_s    = hdef->headerIndex( HDR_TIME_SAMP1.name );
-    vars->hdrID_time_samp1_us = hdef->headerIndex( HDR_TIME_SAMP1_US.name );
   }
-  else {
+  else { // No table given
+    // No table given
     //---------------------------------------------------------
     float startTime = 0.0;
     float endTime = 0.0;
     
     if( isTimeDomain ) {
-      param->getFloat( "start", &startTime );
-      param->getFloat( "end", &endTime );
-      if( startTime < 0.0 ) log->error("Start time (%f) needs to be greater or equal to 0.0.", startTime);
-      if( startTime > endTime ) log->error("Start time (%f) needs to be smaller than end time (%f).", startTime, endTime);
-      vars->startSamp = (int)(startTime / shdr->sampleInt);  // All in milliseconds
-      vars->endSamp   = (int)(endTime / shdr->sampleInt);
+      if( vars->mode == MODE_ABSOLUTE ) {
+        vars->numLocations = 1;
+        vars->numLines = new int[vars->numLocations];
+        vars->numLines[0] = param->getNumValues( "start" );
+        if( vars->numLines[0] == 0 ) log->error("No start values given");
+        else if( param->getNumValues( "end" ) != vars->numLines[0] ) log->error("Unequal start times (%d) and end times (%d) given", vars->numLines[0],param->getNumValues( "end" ));
+        vars->startTimes = new double*[vars->numLocations];
+        vars->endTimes   = new double*[vars->numLocations];
+        vars->startTimes[0] = new double[vars->numLines[0]];
+        vars->endTimes[0]   = new double[vars->numLines[0]];
+        for( int iline = 0; iline < vars->numLines[0]; iline++ ) {
+          double startTime;
+          double endTime;
+          param->getDouble( "start", &startTime, iline );
+          param->getDouble( "end", &endTime, iline );
+          vars->startTimes[0][iline] = startTime * 1000.0; // Convert to milliseconds
+          vars->endTimes[0][iline]   = endTime * 1000.0; // Convert to milliseconds
+          if( edef->isDebug() ) {
+            log->line("Start/end times[%d]: %15.3fs  %15.3fs", iline, startTime, endTime);
+          }
+        }
+      }
+      else {
+        param->getFloat( "start", &startTime );
+        endTime = (float)(shdr->numSamples-1) * shdr->sampleInt;
+        if( param->exists("end") ) {
+          param->getFloat( "end", &endTime );
+        }
+        if( startTime < 0.0 ) log->error("Start time (%f) needs to be greater or equal to 0.0.", startTime);
+        if( startTime > endTime ) log->error("Start time (%f) needs to be smaller than end time (%f).", startTime, endTime);
+        if( startTime >= shdr->numSamples*shdr->sampleInt ) log->error("Start time (%f) exceeds input trace end time (%f).", startTime, shdr->numSamples*shdr->sampleInt);
+        vars->startSamp = (int)(startTime / shdr->sampleInt);  // All in milliseconds
+        vars->endSamp   = (int)(endTime / shdr->sampleInt);
+      }
     }
     else { // Sample domain
+      if( vars->mode == MODE_ABSOLUTE ) {
+        log->error("Absolute start/end times must be provided in seconds since 1-1-1970, not in samples");
+      }
       //
       // NOTE: User input is '1' for first sample. Internally, '0' is used!!
       //
       param->getInt( "start", &vars->startSamp );
-      param->getInt( "end", &vars->endSamp );
+      vars->endSamp = shdr->numSamples;
+      if( param->exists("end") ) {
+        param->getInt( "end", &vars->endSamp );
+      }
       if( vars->startSamp < 1 ) log->error("Start sample (%d) needs to be greater or equal to 1.", vars->startSamp);
       if( vars->startSamp > vars->endSamp ) log->error("Start sample (%d) needs to be smaller than end sample (%d).", vars->startSamp, vars->endSamp);
       vars->startSamp -= 1;   // see note above..
@@ -280,10 +335,22 @@ void init_mod_select_time_( csParamManager* param, csInitPhaseEnv* env, csLogWri
       startTime = (float)vars->startSamp * shdr->sampleInt;
       endTime   = (float)vars->endSamp * shdr->sampleInt;
     }
-  
-    // Set new number of samples
-    shdr->numSamples = vars->endSamp + 1;
+    //    if( vars->endSamp > shdr->numSamples ) log->error("Specified end sample/time (%d/%.2f) is larger than number of input samples (%d)",
+    //                                                vars->endSamp, vars->endSamp*shdr->sampleInt, shdr->numSamples);
 
+    // Set new number of samples
+    if( vars->mode != MODE_ABSOLUTE ) {
+      if( !vars->isShiftTrace ) {
+        shdr->numSamples = vars->endSamp + 1;
+      }
+      else {
+        shdr->numSamples = vars->endSamp - vars->startSamp + 1;
+      }
+    }
+    else {
+      vars->hdrID_time_samp1_s  = hdef->headerIndex( HDR_TIME_SAMP1.name );
+      vars->hdrID_time_samp1_us = hdef->headerIndex( HDR_TIME_SAMP1_US.name );
+    }
 
     if( edef->isDebug() ) {
       log->line("time1: %f, time2: %f, sample1: %d, sample2: %d, sampInt: %f\n", startTime, endTime, vars->startSamp, vars->endSamp, shdr->sampleInt );
@@ -337,6 +404,7 @@ bool exec_mod_select_time_(
   }
 
   float* samples = trace->getTraceSamples();
+
   if( vars->isTable ) {
     double sampleIntInSeconds = (double)shdr->sampleInt / 1000.0;
 
@@ -385,16 +453,41 @@ bool exec_mod_select_time_(
       return true;
     }
   }
-  else {
+  else if( vars->mode == MODE_ABSOLUTE ) {
+    csTraceHeader* trcHdr = trace->getTraceHeader();
+    double startTimeCurrent_ms = 1000.0 * (double)trcHdr->intValue( vars->hdrID_time_samp1_s ) + (double)trcHdr->intValue( vars->hdrID_time_samp1_us )/1000.0;
+    double endTimeCurrent_ms   = (double)startTimeCurrent_ms + (double)( shdr->numSamples * shdr->sampleInt );
+
+    if( edef->isDebug() ) {
+      log->line("Start/end times: %15.3fs  %15.3fs", startTimeCurrent_ms/1000, endTimeCurrent_ms/1000);
+    }
+    for( int iline = 0; iline < vars->numLines[0]; iline++ ) {
+      if( endTimeCurrent_ms <= vars->startTimes[0][iline] || startTimeCurrent_ms >= vars->endTimes[0][iline] ) {
+        continue;
+      }
+      else {
+        return true;  // At least some portion of trace is within specified time window
+        break;
+      }
+    }
+    return false;
+  }
+  else if( !vars->isShiftTrace ) {
     //
     // Zero out trace samples outside the selected time gate
     //
     if( vars->startSamp > 0 ) {
       memset( samples, 0, vars->startSamp*4 );
     }
-		if( vars->numSamplesOrig < shdr->numSamples ) {
+    if( vars->numSamplesOrig < shdr->numSamples ) {
       memset( &samples[vars->numSamplesOrig], 0, (shdr->numSamples - vars->numSamplesOrig)*4 );
-		}
+    }
+  }
+  else {
+    for( int isamp = vars->startSamp; isamp <= vars->endSamp; isamp++ ) {
+      int indexTo = isamp - vars->startSamp;
+      samples[indexTo] = samples[isamp];
+    }
   }
   // Free any left-over memory
   if( vars->doTrim ) {
@@ -445,6 +538,11 @@ void params_mod_select_time_( csParamDef* pdef ) {
   pdef->addValue( "no", VALTYPE_OPTION );
   pdef->addOption( "no", "By default, the system decides whether to free any unused memory immediately or reuse it for later." );
   pdef->addOption( "yes", "Free extra memory." );
+
+  pdef->addParam( "shift", "Shift first life sample to start of trace?", NUM_VALUES_FIXED );
+  pdef->addValue( "no", VALTYPE_OPTION );
+  pdef->addOption( "no", "Do not shift trace. This means that output trace length will be (endSample+1) samples long" );
+  pdef->addOption( "yes", "Shift first life sample to start of trace. This means that output trace length will be (endSample-startSample+1) samples long" );
 }
 
 extern "C" void _params_mod_select_time_( csParamDef* pdef ) {
@@ -456,4 +554,3 @@ extern "C" void _init_mod_select_time_( csParamManager* param, csInitPhaseEnv* e
 extern "C" bool _exec_mod_select_time_( csTrace* trace, int* port, csExecPhaseEnv* env, csLogWriter* log ) {
   return exec_mod_select_time_( trace, port, env, log );
 }
-

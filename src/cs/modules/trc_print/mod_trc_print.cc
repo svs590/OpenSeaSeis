@@ -2,6 +2,7 @@
 /* All rights reserved.                       */
 
 #include "cseis_includes.h"
+#include "csFileUtils.h"
 #include <cmath>
 #include <string>
 
@@ -26,7 +27,12 @@ namespace mod_trc_print {
     std::string format_value;
     std::string printFormat;
     FILE* fout;
+    std::string filename;
     int traceCounter;
+    bool addBlankLine;
+    float timeSamp1;
+    int hdrId_timeSamp1;
+    bool isFirstCall;
   };
 }
 using mod_trc_print::VariableStruct;
@@ -43,6 +49,7 @@ const int OPTION_TABLE = 11;
 void init_mod_trc_print_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* log )
 {
   csExecPhaseDef*   edef = env->execPhaseDef;
+  csTraceHeaderDef* hdef = env->headerDef;
   VariableStruct* vars = new VariableStruct();
   edef->setVariables( vars );
 
@@ -57,11 +64,16 @@ void init_mod_trc_print_( csParamManager* param, csInitPhaseEnv* env, csLogWrite
   vars->format_value = "%16.10e";
   vars->printFormat = "";
   vars->traceCounter = 0;
+  vars->addBlankLine = true;
+  vars->hdrId_timeSamp1 = -1;
+  vars->timeSamp1    = 0;
+  vars->isFirstCall = true;
 
   if( param->exists("filename") ) {
-    string filename;
-    param->getString("filename",&filename);
-    vars->fout = fopen(filename.c_str(),"w");
+    param->getString("filename",&vars->filename);
+    if( !csFileUtils::createDoNotOverwrite( vars->filename ) ) {
+      log->error("Unable to open output file %s. Wrong path name..?", vars->filename.c_str() );
+    }
   }
   else {
     vars->fout = log->getFile();
@@ -77,6 +89,35 @@ void init_mod_trc_print_( csParamManager* param, csInitPhaseEnv* env, csLogWrite
     param->getString("header", &name);
     vars->hdrId_user   = env->headerDef->headerIndex(name);
     vars->hdrType_user = env->headerDef->headerType(name);
+  }
+  if( param->exists("blank_lines") ) {
+    std::string text;
+    param->getString("blank_lines", &text);
+    if( !text.compare( "yes" ) ) {
+      vars->addBlankLine = true;
+    }
+    else if( !text.compare( "no" ) ) {
+      vars->addBlankLine = false;
+    }
+    else {
+      log->line("Unknown option:: '%s'.", text.c_str());
+      env->addError();
+    }
+  }
+  if( param->exists("time_samp1") ) {
+    csFlexNumber number;
+    std::string text;
+    param->getString( "time_samp1", &text );
+    if( !number.convertToNumber( text ) ) {
+      if( !hdef->headerExists(text) ) {
+        log->error("Specified trace header name containing time of first sample does not exist: '%s'", text.c_str());
+      }
+      vars->hdrId_timeSamp1 = hdef->headerIndex(text);
+    }
+    else { // User specified a constant value
+      vars->timeSamp1 = number.floatValue();
+      log->line("Constant time of first sample = %.2f", vars->timeSamp1);
+    }
   }
   vars->printFormat = "%d  " + vars->format_time + "  " + vars->format_value + "\n";
 }
@@ -96,23 +137,39 @@ bool exec_mod_trc_print_(
   csExecPhaseDef* edef = env->execPhaseDef;
   csSuperHeader const* shdr = env->superHeader;
 
-  if( edef->isCleanup()){
+  if( edef->isCleanup() ) {
+    if( vars->fout != NULL ) {
+      fclose( vars->fout );
+      vars->fout = NULL;
+    }
     delete vars; vars = NULL;
     return true;
+  }
+
+  if( vars->isFirstCall ) {
+    vars->isFirstCall = false;
+    if( vars->fout == NULL ) {
+      vars->fout = fopen(vars->filename.c_str(),"w");
+      if( vars->fout == NULL ) log->error("Unable to open output file %s. Wrong path name..?", vars->filename.c_str() );
+    }
   }
 
   //  log->line("TRC_PRINT: numSamples: %d, superheader: %d",trace->numSamples(), shdr->numSamples);
   float* samples = trace->getTraceSamples();
   vars->traceCounter += 1;
 
-  if( vars->traceCounter != 1 ) fprintf(vars->fout,"\n");
+  if( vars->addBlankLine && vars->traceCounter != 1 ) fprintf(vars->fout,"\n");
+
+  if( vars->hdrId_timeSamp1 >= 0 ) {
+    vars->timeSamp1 = trace->getTraceHeader()->floatValue( vars->hdrId_timeSamp1 );
+  }
 
   if( vars->print_hdr ) {
     if( vars->hdrType_user == TYPE_INT ) {
       string printFormat = "%d  %8d " + vars->format_time + "  " + vars->format_value + "\n";
       int value = trace->getTraceHeader()->intValue( vars->hdrId_user );
       for( int isamp = 0; isamp < shdr->numSamples; isamp++ ) {
-        float time = isamp*shdr->sampleInt;
+        float time = isamp*shdr->sampleInt + vars->timeSamp1;
         fprintf(vars->fout,printFormat.c_str(), isamp, value, time, samples[isamp] );
         //        fprintf(vars->fout,"%d  %8d %10.2f  %16.10e\n", isamp, value, time, samples[isamp] );
       }
@@ -121,7 +178,7 @@ bool exec_mod_trc_print_(
       string printFormat = "%d  %14.6f " + vars->format_time + "  " + vars->format_value + "\n";
       double value = trace->getTraceHeader()->doubleValue( vars->hdrId_user );
       for( int isamp = 0; isamp < shdr->numSamples; isamp++ ) {
-        float time = isamp*shdr->sampleInt;
+        float time = isamp*shdr->sampleInt + vars->timeSamp1;
         fprintf(vars->fout,printFormat.c_str(), isamp, value, time, samples[isamp] );
         //        fprintf(vars->fout,"%d  %14.6f %10.2f  %16.10e\n", isamp, value, time, samples[isamp] );
       }
@@ -130,7 +187,7 @@ bool exec_mod_trc_print_(
       string printFormat = "%d  %s " + vars->format_time + "  " + vars->format_value + "\n";
       string value = trace->getTraceHeader()->stringValue( vars->hdrId_user );
       for( int isamp = 0; isamp < shdr->numSamples; isamp++ ) {
-        float time = isamp*shdr->sampleInt;
+        float time = isamp*shdr->sampleInt + vars->timeSamp1;
         fprintf(vars->fout,printFormat.c_str(), isamp, value.c_str(), time, samples[isamp] );
         //        fprintf(vars->fout,"%d  %s %10.2f  %16.10e\n", isamp, value.c_str(), time, samples[isamp] );
       }
@@ -138,7 +195,7 @@ bool exec_mod_trc_print_(
   }
   else {
     for( int isamp = 0; isamp < shdr->numSamples; isamp++ ) {
-      float time = isamp*shdr->sampleInt;
+      float time = isamp*shdr->sampleInt + vars->timeSamp1;
       fprintf(vars->fout,vars->printFormat.c_str(), isamp, time, samples[isamp] );
       //      fprintf(vars->fout,"%d  %10.2f  %16.10e\n", isamp, time, samples[isamp] );
     }
@@ -163,6 +220,14 @@ void params_mod_trc_print_( csParamDef* pdef ) {
   pdef->addParam( "format", "Specify floating point format (C style)", NUM_VALUES_FIXED );
   pdef->addValue( "%10.2f", VALTYPE_STRING, "Format for sample time/frequency" );
   pdef->addValue( "%16.10e", VALTYPE_STRING, "Format for sample value" );
+
+  pdef->addParam( "blank_lines", "Add blank lines between traces?", NUM_VALUES_FIXED, "Adds blank lines in output file between all traces" );
+  pdef->addValue( "yes", VALTYPE_OPTION );
+  pdef->addOption( "yes", "Add blank lines between traces" );
+  pdef->addOption( "no", "Do NOT add blank lines between traces" );
+
+  pdef->addParam( "time_samp1", "Time of first sample (in units of data)", NUM_VALUES_FIXED );
+  pdef->addValue( "0", VALTYPE_HEADER_NUMBER, "Time of first sample: Value or name of trace header containing the value");
 }
 
 extern "C" void _params_mod_trc_print_( csParamDef* pdef ) {

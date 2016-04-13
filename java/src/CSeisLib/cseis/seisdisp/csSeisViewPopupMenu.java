@@ -7,7 +7,6 @@ package cseis.seisdisp;
 import java.awt.event.ActionEvent;
 
 import javax.swing.AbstractAction;
-import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 
 /**
@@ -23,14 +22,7 @@ public class csSeisViewPopupMenu extends JPopupMenu {
     super();
     mySeisView = seisview;
     myShowDispSettingsAction = new csShowDispSettingsAction();
-    JMenuItem itemTmp1 = new JMenuItem("Dummy1...");
-    JMenuItem itemTmp2 = new JMenuItem("Dummy2...");
-    itemTmp1.setEnabled(false);
-    itemTmp2.setEnabled(false);
 
-    add( itemTmp1 );
-    add( itemTmp2 );
-    addSeparator();
     add( myShowDispSettingsAction );
   }
   public csShowDispSettingsAction getShowDispSettingsAction() {

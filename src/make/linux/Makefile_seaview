@@ -15,6 +15,7 @@ OBJ_JNI_SEGY = $(OBJDIR)/csSegyHdrMap.o \
 				$(OBJDIR)/csSeismicReader_ver01.o \
 				$(OBJDIR)/csSeismicReader_ver02.o \
 				$(OBJDIR)/csSeismicReader_ver03.o \
+				$(OBJDIR)/csSeismicReader_ver04.o \
 				$(OBJDIR)/csGeneralSeismicReader.o \
 				$(OBJDIR)/csSeismicIOConfig.o \
 				$(OBJDIR)/geolib_string_utils.o \
@@ -55,6 +56,9 @@ OBJ_JNI = $(OBJDIR)/csNativeSegyReader.o \
 			$(OBJDIR)/csNativeSegdReader.o \
 			$(OBJDIR)/csNativeModuleHelp.o \
 			$(OBJDIR)/csNativeFFTTransform.o \
+			$(OBJDIR)/csNativeFilter.o \
+			$(OBJDIR)/csFilterTool.o \
+			$(OBJDIR)/csFFTTools.o \
 			$(OBJDIR)/csNativeRSFReader.o
 
 CXXFLAGS_JNI = -fPIC $(COMMON_FLAGS) -I"$(SRCDIR)/cs/geolib" -I"$(SRCDIR)/cs/segy" -I"$(SRCDIR)/cs/segd" -I"$(SRCDIR)/cs/io" -I"$(SRCDIR)/cs/system"
@@ -91,6 +95,15 @@ $(OBJDIR)/csNativeModuleHelp.o: ${JNIDIR}/csNativeModuleHelp.cc
 
 $(OBJDIR)/csNativeFFTTransform.o: ${JNIDIR}/csNativeFFTTransform.cc
 	$(CPP) -c ${JNIDIR}/csNativeFFTTransform.cc -o $(OBJDIR)/csNativeFFTTransform.o $(CXXFLAGS_JNI) $(INC_JNI)
+
+$(OBJDIR)/csNativeFilter.o: ${JNIDIR}/csNativeFilter.cc
+	$(CPP) -c ${JNIDIR}/csNativeFilter.cc -o $(OBJDIR)/csNativeFilter.o $(CXXFLAGS_JNI) $(INC_JNI)
+
+$(OBJDIR)/csFilterTool.o: ${JNIDIR}/csFilterTool.cc
+	$(CPP) -c ${JNIDIR}/csFilterTool.cc -o $(OBJDIR)/csFilterTool.o $(CXXFLAGS_JNI) $(INC_JNI) $(CXXFLAGS_GEOLIB)
+
+$(OBJDIR)/csFFTTools.o: $(SRCDIR)/cs/geolib/csFFTTools.cc        
+	$(CPP) -c -fPIC $(SRCDIR)/cs/geolib/csFFTTools.cc -o $(OBJDIR)/csFFTTools.o $(CXXFLAGS_GEOLIB)
 
 $(OBJDIR)/fft.o: $(SRCDIR)/cs/geolib/fft.cc        
 	$(CPP) -c -fPIC $(SRCDIR)/cs/geolib/fft.cc -o $(OBJDIR)/fft.o $(CXXFLAGS_GEOLIB)
@@ -178,6 +191,9 @@ $(OBJDIR)/csSeismicReader_ver02.o: $(SRCDIR)/cs/io/csSeismicReader_ver02.cc $(SR
 
 $(OBJDIR)/csSeismicReader_ver03.o: $(SRCDIR)/cs/io/csSeismicReader_ver03.cc $(SRCDIR)/cs/io/csSeismicReader_ver03.h
 	$(CPP) -c $(SRCDIR)/cs/io/csSeismicReader_ver03.cc -o $(OBJDIR)/csSeismicReader_ver03.o $(CXXFLAGS_JNI)
+
+$(OBJDIR)/csSeismicReader_ver04.o: $(SRCDIR)/cs/io/csSeismicReader_ver04.cc $(SRCDIR)/cs/io/csSeismicReader_ver04.h
+	$(CPP) -c $(SRCDIR)/cs/io/csSeismicReader_ver04.cc -o $(OBJDIR)/csSeismicReader_ver04.o $(CXXFLAGS_JNI)
 
 $(OBJDIR)/csGeneralSeismicReader.o: $(SRCDIR)/cs/io/csGeneralSeismicReader.cc $(SRCDIR)/cs/io/csGeneralSeismicReader.h
 	$(CPP) -c $(SRCDIR)/cs/io/csGeneralSeismicReader.cc -o $(OBJDIR)/csGeneralSeismicReader.o $(CXXFLAGS_JNI)

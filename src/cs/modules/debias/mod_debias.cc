@@ -20,6 +20,8 @@ namespace mod_debias {
     int hdrId_bias;
     bool isReapply;
     bool includeZeros;
+    int startSample;
+    int endSample;
 //    int tmpCounter;
   };
   static int const MODE_ENSEMBLE = 11;
@@ -38,6 +40,7 @@ void init_mod_debias_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
 {
   csExecPhaseDef*   edef = env->execPhaseDef;
   csTraceHeaderDef* hdef = env->headerDef;
+  csSuperHeader* shdr    = env->superHeader;
   VariableStruct* vars = new VariableStruct();
   edef->setVariables( vars );
 
@@ -45,6 +48,8 @@ void init_mod_debias_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
   vars->mode         = MODE_TRACE;
   vars->isReapply    = false;
   vars->includeZeros = true;
+  vars->startSample = 0;
+  vars->endSample = shdr->numSamples-1;
 
   edef->setExecType( EXEC_TYPE_MULTITRACE );
 
@@ -92,6 +97,18 @@ void init_mod_debias_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
       log->line("Unknown argument for user parameter 'zeros': '%s'.", text.c_str());
       env->addError();
     }
+  }
+  if( param->exists("window") ) {
+    double start;
+    double end;
+    param->getDouble( "window", &start, 0 );
+    param->getDouble( "window", &end, 1 );
+    vars->startSample = (int)( start / shdr->sampleInt + 0.5 );
+    vars->endSample   = (int)( end / shdr->sampleInt + 0.5 );
+
+    if( vars->startSample < 0 ) vars->startSample = 0;
+    if( vars->endSample >= shdr->numSamples ) vars->endSample = shdr->numSamples-1;
+    if( vars->endSample <= vars->startSample ) log->error("Inconsistent start/end times in window: %f >=? %f\n", start, end);
   }
 
   if( vars->mode == MODE_ENSEMBLE ) {
@@ -143,7 +160,7 @@ void exec_mod_debias_(
       double sum = 0.0;
       int sampleCounter = 0;
       if( !vars->includeZeros ) {
-        for( int isamp = 0; isamp < shdr->numSamples; isamp++ ) {
+        for( int isamp = vars->startSample; isamp <= vars->endSample; isamp++ ) {
           if( samples[isamp] != 0 ) {
             sampleCounter += 1;
             sum += (double)samples[isamp];
@@ -151,8 +168,8 @@ void exec_mod_debias_(
         }
       }
       else {
-        sampleCounter = shdr->numSamples;
-        for( int isamp = 0; isamp < shdr->numSamples; isamp++ ) {
+        sampleCounter = vars->endSample - vars->startSample + 1;
+        for( int isamp = vars->startSample; isamp <= vars->endSample; isamp++ ) {
           sum += (double)samples[isamp];
         }
       }
@@ -222,6 +239,10 @@ void params_mod_debias_( csParamDef* pdef ) {
   pdef->addValue( "include", VALTYPE_OPTION );
   pdef->addOption( "exclude", "Exclude zeros from DC bias computation", "Zero values will not contribute to DC bias computation, and will remain unchanged in the output" );
   pdef->addOption( "include", "Include zeros in DC bias computation" );
+
+  pdef->addParam( "window", "Computation window", NUM_VALUES_FIXED, "Full trace is used if not specified" );
+  pdef->addValue( "", VALTYPE_NUMBER, "Start time" );
+  pdef->addValue( "", VALTYPE_NUMBER, "End time" );
 }
 
 extern "C" void _params_mod_debias_( csParamDef* pdef ) {

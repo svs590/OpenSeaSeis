@@ -128,8 +128,8 @@ void init_mod_bin_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* log
   }
 
   if( vars->method != METHOD_DEFINE ) {
-    if( shdr->grid_binsize_il <= 0.0 || shdr->grid_binsize_xl <= 0.0 ) {
-      log->error("Before binning can be performed, a survey grid has to be defined using parameter 'method', set to 'define'.");
+    if( shdr->grid_binsize_il == 0.0 || shdr->grid_binsize_xl == 0.0 ) {
+      log->error("Bin size found to be zero. Before binning can be performed, a survey grid has to be defined using parameter 'method', set to 'define'.");
     }
     string headerName_row("row");
     string headerName_col("col");

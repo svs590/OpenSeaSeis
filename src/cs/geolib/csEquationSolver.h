@@ -55,7 +55,6 @@ public:
   bool prepare( std::string const& equation, std::string const* userConstantNames, int nConstants, double const* userConstants );
   bool prepare( std::string const& equation, std::string const* userConstantNames, int nConstants );
   bool prepare( std::string const& equation );
-
   /**
   * Return a list of all user constant names that are used in equation
   */

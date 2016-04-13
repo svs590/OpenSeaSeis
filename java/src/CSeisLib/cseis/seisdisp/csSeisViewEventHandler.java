@@ -17,15 +17,15 @@ import javax.swing.SwingUtilities;
  */
 public class csSeisViewEventHandler implements MouseMotionListener, MouseListener, KeyListener {
   private csSeisView myView;
-  private ArrayList<csISampleInfoListener> mySampleInfoListeners;
-  private ArrayList<csIKeyListener> myKeyListeners;
-  private ArrayList<csIPanningListener> myPanningListeners;
-  private ArrayList<csIRubberBandListener> myRubberBandListeners;
+  private final ArrayList<csISampleInfoListener> mySampleInfoListeners;
+  private final ArrayList<csIKeyListener> myKeyListeners;
+  private final ArrayList<csIPanningListener> myPanningListeners;
+  private final ArrayList<csIRubberBandListener> myRubberBandListeners;
   private boolean myIsSHIFTPressed = false;
   private boolean myIsCTRLPressed = false;
   private Point myPressedPoint;
   private boolean myIsMouseInWindow;
-  private csRubberBandOverlay myRubberBand;
+  private final csRubberBandOverlay myRubberBand;
 
   public csSeisViewEventHandler( csSeisView view ) {
     myView = view;
@@ -142,6 +142,9 @@ public class csSeisViewEventHandler implements MouseMotionListener, MouseListene
     else if( myView.getMouseMode() == csMouseModes.PICK_MODE ) {
       myView.setCursor( csMouseModes.PICK_CURSOR );
     }
+    else if( myView.getMouseMode() == csMouseModes.PAINT_MODE ) {
+      myView.setCursor( csMouseModes.PAINT_CURSOR );
+    }
     else { //( myView.getMouseMode() == csMouseModes.NO_MODE ) {
       myView.setCursor( Cursor.getDefaultCursor() );
     }
@@ -173,7 +176,7 @@ public class csSeisViewEventHandler implements MouseMotionListener, MouseListene
     if( !myIsMouseInWindow ) return;
     myIsSHIFTPressed = e.isShiftDown();
     myIsCTRLPressed  = e.isControlDown();
-    fireKeyEvent( e );
+    fireKeyPressedEvent( e );
   }
 
 //----------------------------------------------------------------
@@ -182,6 +185,7 @@ public class csSeisViewEventHandler implements MouseMotionListener, MouseListene
     if( !myIsMouseInWindow ) return;
     myIsSHIFTPressed = e.isShiftDown();
     myIsCTRLPressed  = e.isControlDown();
+    fireKeyReleasedEvent( e );
   }
 
 //----------------------------------------------------------------
@@ -248,7 +252,14 @@ public class csSeisViewEventHandler implements MouseMotionListener, MouseListene
     }
   }
 //-------------------------------------------------------------------
-  private void fireKeyEvent( KeyEvent event) {
+  private void fireKeyReleasedEvent( KeyEvent event) {
+    for( int i = 0; i < myKeyListeners.size(); i++ ) {
+      csIKeyListener target = myKeyListeners.get( i );
+      target.keyReleased( event );
+    }
+  }
+//-------------------------------------------------------------------
+  private void fireKeyPressedEvent( KeyEvent event) {
     for( int i = 0; i < myKeyListeners.size(); i++ ) {
       csIKeyListener target = myKeyListeners.get( i );
       target.keyPressed( event );

@@ -24,7 +24,7 @@ class csSeismicIOConfig;
  */
 class csSeismicWriter_ver {
  public:
-  static int const VERSION_SEISMIC_WRITER = 03;
+  static int const VERSION_SEISMIC_WRITER = 04;
   static int const DEFAULT_BUFFERED_BYTES = 10000000;
  public:
   csSeismicWriter_ver( std::string filename );

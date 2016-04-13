@@ -105,6 +105,8 @@ if [ ${NO_FFTW} -eq 1 ]; then
     echo "WARNING: Library 'libfftw3f.so' not found in standard library path."
     echo " - Seaseis FFT modules will be compiled without FFTW3."
     echo " - Visit www.fftw.org to download and install FFTW libraries."
+else
+    export LIBFFTW=fftw3f
 fi
 
 #********************************************************************************

@@ -21,6 +21,12 @@ csTraceHeaderDef::csTraceHeaderDef( csTraceHeaderDef* refHdrDefPtr ) {
   addHeader_internal( cseis_geolib::HDR_TIME_SAMP1.type, cseis_geolib::HDR_TIME_SAMP1.name, cseis_geolib::HDR_TIME_SAMP1.description, 1 );
   addHeader_internal( cseis_geolib::HDR_TIME_SAMP1_US.type, cseis_geolib::HDR_TIME_SAMP1_US.name, cseis_geolib::HDR_TIME_SAMP1_US.description, 1 );
 }
+csTraceHeaderDef::csTraceHeaderDef( csMemoryPoolManager* memManager ) {
+  init( 1, memManager );
+  // Always set absolute time headers. These must ALWAYS exist.
+  addHeader_internal( cseis_geolib::HDR_TIME_SAMP1.type, cseis_geolib::HDR_TIME_SAMP1.name, cseis_geolib::HDR_TIME_SAMP1.description, 1 );
+  addHeader_internal( cseis_geolib::HDR_TIME_SAMP1_US.type, cseis_geolib::HDR_TIME_SAMP1_US.name, cseis_geolib::HDR_TIME_SAMP1_US.description, 1 );
+}
 csTraceHeaderDef::csTraceHeaderDef( int numInputPorts, csTraceHeaderDef const** hdef, csMemoryPoolManager* memManager ) {
   if( numInputPorts > 0 ) {
     init( numInputPorts, memManager );
@@ -397,7 +403,8 @@ void csTraceHeaderDef::dump() const {
   fprintf(stdout,"********* csTraceHeaderDef::dump(), total num bytes: %d *********\n", myTotalNumBytes);
   for( int i = 0; i < myTraceHeaderInfoList->size(); i++ ) {
     csTraceHeaderInfo const* info = myTraceHeaderInfoList->at( i );
-    fprintf(stdout,"Info %2d, type %2d: '%-20s', Desc: '%s'\n", i, info->type, info->name.c_str(), info->description.c_str() );
+    fprintf(stdout,"Info %2d, type %8s, byte %d: '%-20s', Desc: '%s'\n", i, cseis_geolib::csGeolibUtils::typeText(info->type),
+            getByteLocation(i), info->name.c_str(), info->description.c_str() );
   }
 }
 void csTraceHeaderDef::resetByteLocation() {

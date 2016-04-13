@@ -152,7 +152,7 @@ public class TestGraph2D extends JFrame implements MouseListener, MouseMotionLis
 
 //    getContentPane().add( toolBar, BorderLayout.NORTH );
 //    getContentPane().add( myScrollPaneVert, BorderLayout.EAST );
-//    getContentPane().add( myScrollPaneHorz, BorderLayout.SOUTH );
+//   getContentPane().add( myScrollPaneHorz, BorderLayout.SOUTH );
 //    getContentPane().add( myPaneVert, BorderLayout.EAST );
 //    getContentPane().add( myPaneHorz, BorderLayout.SOUTH );
 

@@ -65,6 +65,12 @@ namespace cseis_geolib {
 
     static bool seekg_relative( csInt64_t bytePosRelative, std::ifstream* file );
 
+    /**
+     * Create file
+     * @return true if file exists or was created
+     */
+    static bool createDoNotOverwrite( std::string const& filename );
+    static bool fileExists( std::string const& filename );
   private:
     static int const RETRIEVE_FILES_EXTENSION = 10;
     static int const RETRIEVE_FILES_FIRST     = 11;

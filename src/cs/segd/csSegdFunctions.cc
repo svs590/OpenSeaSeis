@@ -173,13 +173,13 @@ namespace cseis_segd {
     switch( segdFormatCode ) {
     case 8022: // 	8	 bit quaternary demultiplexed
     case 8024: //		16 bit quaternary demultiplexed
-    case 8036: //		24 bit 2's compliment integer demultiplexed
     case 8038: //		32 bit 2's compliment integer demultiplexed
     case 8042: //		8 bit hexadecimal demultiplexed
     case 8044: //		16 bit hexadecimal &multiplexed
     case 8048: //		32 bit hexadecimal demultiplexed
       return false;
     case 8015: // 20 bit binary demultiplexed
+    case 8036: // 24 bit 2's compliment integer demultiplexed
     case 8058: // 32 bit IEEE demultiplexed
       return true;
     default:

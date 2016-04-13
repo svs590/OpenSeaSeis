@@ -5,7 +5,9 @@
 package cseis.seaview;
 
 import cseis.processing.csProcessingAGC;
+import cseis.processing.csProcessingFilter;
 import cseis.processing.csProcessingDCRemoval;
+import cseis.processing.csProcessingInterpolation;
 import cseis.seisdisp.csSeisPane;
 import java.awt.event.ActionEvent;
 
@@ -22,6 +24,8 @@ import java.awt.event.ActionListener;
 @SuppressWarnings("serial")
 public class csSeaViewPopupMenu extends csSeisViewPopupMenu {
   private csSeisPaneBundle myBundle;
+  private final JCheckBoxMenuItem myItemPaintMode;
+  private final JCheckBoxMenuItem myItemPickMode;
 
   csSeaViewPopupMenu( csSeisPaneBundle bundle ) {
     super( bundle.seisView );
@@ -44,8 +48,13 @@ public class csSeaViewPopupMenu extends csSeisViewPopupMenu {
 
     JMenuItem itemProcessingClear = new JMenuItem( "Clear" );
     JMenuItem itemProcessingAGC = new JMenuItem( "AGC" );
+    JMenuItem itemProcessingInterpolation = new JMenuItem( "Interpolation" );
+    JMenuItem itemProcessingFilter = new JMenuItem( "Filter" );
     JMenuItem itemProcessingDCRemoval = new JMenuItem( "DC removal" );
-    
+
+    myItemPaintMode = new JCheckBoxMenuItem( csSeaViewActions.ACTION_TITLE[csSeaViewActions.PaintModeAction], csSeaViewActions.getIcon(csSeaViewActions.PaintModeAction) );
+    myItemPickMode  = new JCheckBoxMenuItem( csSeaViewActions.ACTION_TITLE[csSeaViewActions.PickModeAction], csSeaViewActions.getIcon(csSeaViewActions.PickModeAction) );
+
     itemAnnotation.setToolTipText( csSeaViewActions.ACTION_DESC[csSeaViewActions.SetAnnotationAction] );
     itemOverlay.setToolTipText( csSeaViewActions.ACTION_DESC[csSeaViewActions.ShowOverlayAction] );
     itemGraph.setToolTipText( csSeaViewActions.ACTION_DESC[csSeaViewActions.ShowGraphAction] );
@@ -59,6 +68,8 @@ public class csSeaViewPopupMenu extends csSeisViewPopupMenu {
     itemProcessingClear.setToolTipText( "Clear applied processing steps" );
     itemProcessingDCRemoval.setToolTipText( "Remove DC bias" );
     itemProcessingAGC.setToolTipText( "Apply AGC (automatic gain control)" );
+    itemProcessingFilter.setToolTipText( "Apply bandpass filter" );
+    itemProcessingInterpolation.setToolTipText( "Interpolation (add traces)" );
     
     add( myShowDispSettingsAction );
     add( itemAnnotation );
@@ -81,6 +92,11 @@ public class csSeaViewPopupMenu extends csSeisViewPopupMenu {
     menuProcessing.addSeparator();
     menuProcessing.add(itemProcessingDCRemoval);
     menuProcessing.add(itemProcessingAGC);
+    menuProcessing.add(itemProcessingFilter);
+//    menuProcessing.add(itemProcessingInterpolation);
+    addSeparator();
+    add( myItemPaintMode );
+    add( myItemPickMode );
     
     itemAnnotation.addActionListener( new ActionListener() {
       @Override
@@ -148,13 +164,49 @@ public class csSeaViewPopupMenu extends csSeisViewPopupMenu {
         myBundle.setProcessingStep( csProcessingAGC.NAME );
       }
     });
+    itemProcessingFilter.addActionListener( new ActionListener() {
+      @Override
+      public void actionPerformed( ActionEvent e ) {
+        myBundle.setProcessingStep( csProcessingFilter.NAME );
+      }
+    });
+    itemProcessingInterpolation.addActionListener( new ActionListener() {
+      @Override
+      public void actionPerformed( ActionEvent e ) {
+        myBundle.setProcessingStep( csProcessingInterpolation.NAME );
+      }
+    });
     itemProcessingDCRemoval.addActionListener( new ActionListener() {
       @Override
       public void actionPerformed( ActionEvent e ) {
         myBundle.setProcessingStep( csProcessingDCRemoval.NAME );
       }
     });
+    myItemPaintMode.addActionListener( new ActionListener() {
+      @Override
+      public void actionPerformed( ActionEvent e ) {
+        if( myItemPickMode.isSelected() ) {
+          myItemPickMode.setSelected(false);
+          myBundle.setPickMode( false );
+        }
+        myBundle.setPaintMode( ((JCheckBoxMenuItem)e.getSource()).isSelected() );
+      }
+    });
+    myItemPickMode.addActionListener( new ActionListener() {
+      @Override
+      public void actionPerformed( ActionEvent e ) {
+        if( myItemPaintMode.isSelected() ) {
+          myItemPaintMode.setSelected(false);
+          myBundle.setPaintMode( false );
+        }
+        myBundle.setPickMode( ((JCheckBoxMenuItem)e.getSource()).isSelected() );
+      }
+    });
+  }
+  void setPaintMode( boolean doSet ) {
+    myItemPaintMode.setSelected( doSet );
+  }
+  void setPickMode( boolean doSet ) {
+    myItemPickMode.setSelected( doSet );
   }
 }
-
-

@@ -6,6 +6,7 @@
 #include "csSeismicReader_ver01.h"
 #include "csSeismicReader_ver02.h"
 #include "csSeismicReader_ver03.h"
+#include "csSeismicReader_ver04.h"
 #include "csSeismicIOConfig.h"
 #include "csException.h"
 #include "csHeaderInfo.h"
@@ -62,7 +63,10 @@ csSeismicReader_ver::csSeismicReader_ver( std::string filename, bool enableRando
 csSeismicReader_ver* csSeismicReader_ver::createReaderObject( std::string filename, bool enableRandomAccess, int numTracesBuffer ) {
   std::string versionString;
   csSeismicReader_ver::extractVersionString( filename, versionString );
-  if( !versionString.substr(5,3).compare("0.3") ) {
+  if( !versionString.substr(5,3).compare("0.4") ) {
+    return new csSeismicReader_ver04( filename, enableRandomAccess, numTracesBuffer );
+  }
+  else if( !versionString.substr(5,3).compare("0.3") ) {
     return new csSeismicReader_ver03( filename, enableRandomAccess, numTracesBuffer );
   }
   else if( !versionString.substr(5,3).compare("0.2") ) {
@@ -98,7 +102,8 @@ void csSeismicReader_ver::extractVersionString( std::string filename, std::strin
   int lenOSEIS = strlen(ID_TEXT_OSEIS);
   if( strncmp( text, ID_TEXT_CSEIS, lenCSEIS ) && strncmp( text, ID_TEXT_OSEIS, lenOSEIS ) ) {
     //    delete [] text;
-    throw( cseis_geolib::csException("Format of input file '%s' unknown. This is not an SeaSeis file.", filename.c_str() ) );
+    throw( cseis_geolib::csException("Format of input file '%s' unknown. This is not a SeaSeis file. File starts with '%s'",
+                                     filename.c_str(), text ) );
   }
 
   versionString = text;

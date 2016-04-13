@@ -387,6 +387,8 @@ public class csSeisPane extends JPanel implements csISeisViewListener, csIKeyLis
   }
     
   }
+  public void keyReleased( KeyEvent event ) {
+  }
   //-------------------------------------------------------------
   //
   public JScrollBar getVerticalScrollBar() {

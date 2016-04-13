@@ -86,6 +86,9 @@ void init_mod_ens_define_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
       }
     }
   }
+  else if( !param->exists("all") ) {
+    log->error("No user parameter specified: 'header' or 'all'");
+  }
 
 }
 

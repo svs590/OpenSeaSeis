@@ -76,11 +76,15 @@ void csGeneralHeaderN::extractHeaders( byte const* buffer )
 
   sourceLineNum = INT24(&buffer[3]);
   double tmp = (double)UINT16(&buffer[6]);
-  sourceLineNum += tmp / std::pow( 10.0, int(std::log(tmp/10.0)) );
+  double tmp2 = tmp;
+  if( tmp2 < 1.0 ) tmp2 = 1.0;
+  sourceLineNum += tmp / std::pow( 10.0, int(std::log(tmp2/10.0)) );
 
   sourcePointNum = INT24(&buffer[8]);
   tmp = (double)UINT16(&buffer[11]);
-  sourcePointNum += tmp / std::pow( 10.0, int(std::log(tmp/10.0)) );
+  tmp2 = tmp;
+  if( tmp2 < 1.0 ) tmp2 = 1.0;
+  sourcePointNum += tmp / std::pow( 10.0, int(std::log(tmp2/10.0)) );
 
   sourcePointIndex      = buffer[13];
   phaseControl          = buffer[14];

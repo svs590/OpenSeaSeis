@@ -73,6 +73,8 @@ public:
   * Run execution phase for all modules
   */
   int runExecPhase();
+
+  static bool checkParameters( char const* moduleName, csParamDef const* paramDef, cseis_geolib::csVector<csUserParam*>* userParams, csLogWriter* log );
 private:
   csRunManager(csRunManager const& obj);
   csLogWriter* myLog;
@@ -93,7 +95,6 @@ private:
   /**
   * Check all user parameters against parameter definition specified in module parameter method "void params_mod_MODULENAME_( csParamDef* pdef )"
   */
-  bool checkParameters( char const* moduleName, csParamDef const* paramDef, cseis_geolib::csVector<csUserParam*>* userParams );
   csMemoryPoolManager* myMemoryPoolManager;
   cseis_geolib::csTimer* myTimerCPU;
 };

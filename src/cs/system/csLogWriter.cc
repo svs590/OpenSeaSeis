@@ -8,6 +8,7 @@
 using namespace cseis_system;
 
 csLogWriter::csLogWriter( char const* filename ) : myFilename( filename ), myIsOpenedLocally(false) {
+  myLogFile = NULL;
   if( myFilename != NULL ) {
     myLogFile = fopen( myFilename, "w" );
     if( myLogFile == NULL ) {

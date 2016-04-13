@@ -30,7 +30,7 @@ class csMemoryPoolManager {
   static int const POLICY_SPEED  = 651;
   static int const POLICY_MEMORY = 156;
 
-  static csInt64_t const MAX_NUM_MEGABYTES = 8192;
+  static csInt64_t const MAX_NUM_MEGABYTES = 12192;
 public:
   csMemoryPoolManager();
   csMemoryPoolManager( int policy );

@@ -190,28 +190,43 @@ void csTraceHeaderExtension_SEAL::extractHeaders( byte const* buffer ) {
   block2.sensorTypeNB = UINT8(&buffer[20+blockSize]);
 
   if( myNumBlocks < 3 ) return;
-  memcpy( &block3.resistanceLimitLow, &buffer[0+blockSize*2], 4 );
-  memcpy( &block3.resistanceLimitHigh, &buffer[5+blockSize*2], 4 );
-  memcpy( &block3.resistanceValue, &buffer[8+blockSize*2], 4 );
-  memcpy( &block3.tiltLimit, &buffer[12+blockSize*2], 4 );
-  memcpy( &block3.tiltValue, &buffer[16+blockSize*2], 4 );
+  char buffer128[128];
+  memcpy( buffer128, &buffer[0+blockSize*2], 20 );
+  if( myIsLittleEndian ) {
+    cseis_geolib::swapEndian( buffer128, 4, 20 );
+  }
+  memcpy( &block3.resistanceLimitLow, &buffer128[0], 4 );
+  memcpy( &block3.resistanceLimitHigh, &buffer128[4], 4 );
+  memcpy( &block3.resistanceValue, &buffer128[8], 4 );
+  memcpy( &block3.tiltLimit, &buffer128[12], 4 );
+  memcpy( &block3.tiltValue, &buffer128[16], 4 );
   block3.resistanceError = UINT8(&buffer[20+blockSize*2]);
   block3.tiltError = UINT8(&buffer[21+blockSize*2]);
 
   if( myNumBlocks < 4 ) return;
-  memcpy( &block4.capacitanceLimitLow, &buffer[0+blockSize*3], 4 );
-  memcpy( &block4.capacitanceLimitHigh, &buffer[5+blockSize*3], 4 );
-  memcpy( &block4.capacitanceValue, &buffer[8+blockSize*3], 4 );
-  memcpy( &block4.cutOffLimitLow, &buffer[12+blockSize*3], 4 );
-  memcpy( &block4.cutOffLimitHigh, &buffer[16+blockSize*3], 4 );
-  memcpy( &block4.cutOffValue, &buffer[20+blockSize*3], 4 );
+  
+  memcpy( buffer128, &buffer[0+blockSize*3], 24 );
+  if( myIsLittleEndian ) {
+    cseis_geolib::swapEndian( buffer128, 4, 24 );
+  }
+  memcpy( &block4.capacitanceLimitLow, &buffer128[0], 4 );
+  memcpy( &block4.capacitanceLimitHigh, &buffer128[4], 4 );
+  memcpy( &block4.capacitanceValue, &buffer128[8], 4 );
+  memcpy( &block4.cutOffLimitLow, &buffer128[12], 4 );
+  memcpy( &block4.cutOffLimitHigh, &buffer128[16], 4 );
+  memcpy( &block4.cutOffValue, &buffer128[20], 4 );
+
   block4.capacitanceError = UINT8(&buffer[24+blockSize*3]);
   block4.cutOffError = UINT8(&buffer[25+blockSize*3]);
 
   if( myNumBlocks < 5 ) return;
-  memcpy( &block5.leakageLimit, &buffer[0+blockSize*3], 4 );
-  memcpy( &block5.leakageValue, &buffer[4+blockSize*3], 4 );
-  block5.leakageError = UINT8(&buffer[24+blockSize*3]);
+  memcpy( buffer128, &buffer[0+blockSize*4], 8 );
+  if( myIsLittleEndian ) {
+    cseis_geolib::swapEndian( buffer128, 4, 8 );
+  }
+  memcpy( &block5.leakageLimit, &buffer128[0], 4 );
+  memcpy( &block5.leakageValue, &buffer128[4], 4 );
+  block5.leakageError = UINT8(&buffer[24+blockSize*4]);
 
   if( myNumBlocks < 6 ) return;
   block6.unitType   = UINT8(&buffer[0+blockSize*5]); // 0: not identified, 1: FDU, 2: SU6R
@@ -222,7 +237,16 @@ void csTraceHeaderExtension_SEAL::extractHeaders( byte const* buffer ) {
   block6.fduAssemblyLocation   = UINT8(&buffer[12+blockSize*5]);
   block6.fduUnitType   = UINT8(&buffer[16+blockSize*5]);
   block6.chanType   = UINT8(&buffer[17+blockSize*5]);
-  block6.sensorSensitivity   = (float)UINT32(&buffer[20+blockSize*5]);
+  //  block6.sensorSensitivity   = (float)UINT32(&buffer[20+blockSize*5]);
+  if( myIsLittleEndian ) {
+    char buffer4[4];
+    memcpy( buffer4, &buffer[20+blockSize*5], 4 );
+    cseis_geolib::swapEndian4( buffer4, 4 );
+    memcpy( &block6.sensorSensitivity, buffer4, 4 );
+  }
+  else {
+    memcpy( &block6.sensorSensitivity, &buffer[20+blockSize*5], 4 );
+  }
 
   if( myNumBlocks < 7 ) return;
   block7.controlUnitType = UINT8(&buffer[0+blockSize*6]);
@@ -231,15 +255,34 @@ void csTraceHeaderExtension_SEAL::extractHeaders( byte const* buffer ) {
   block7.chanFilter = UINT8(&buffer[5+blockSize*6]);
   block7.chanDataError = UINT8(&buffer[6+blockSize*6]);
   block7.chanEditStatus = UINT8(&buffer[7+blockSize*6]);
-  memcpy( &block7.sampleToMVconversionFactor, &buffer[8+blockSize*6], 4 );
+
+  if( myIsLittleEndian ) {
+    char buffer4[4];
+    memcpy( buffer4, &buffer[8+blockSize*6], 4 );
+    cseis_geolib::swapEndian4( buffer4, 4 );
+    memcpy( &block7.sampleToMVconversionFactor, buffer4, 4 );
+  }
+  else {
+    memcpy( &block7.sampleToMVconversionFactor, &buffer[8+blockSize*6], 4 );
+  }
+  //  memcpy( &block7.sampleToMVconversionFactor, &buffer[8+blockSize*6], 4 );
   block7.numStacksLow = UINT8(&buffer[12+blockSize*6]);
   block7.numStacksNoisy = UINT8(&buffer[13+blockSize*6]);
   block7.chanTypeID = UINT8(&buffer[14+blockSize*6]);
   block7.chanProcess = UINT8(&buffer[15+blockSize*6]);
-  memcpy( &block7.analogLowcutFilter, &buffer[16+blockSize*6], 4 );
-  memcpy( &block7.digitalLowcutFilter, &buffer[20+blockSize*6], 4 );
+
+  memcpy( buffer128, &buffer[16+blockSize*6], 8 );
+  if( myIsLittleEndian ) {
+    cseis_geolib::swapEndian( buffer128, 4, 8 );
+  }
+  memcpy( &block7.analogLowcutFilter, &buffer128[16], 4 );
+  memcpy( &block7.digitalLowcutFilter, &buffer128[20], 4 );
   block7.numEditions = UINT32(&buffer[24+blockSize*6]);
-  memcpy( &block7.compoundLowcutFilter, &buffer[28+blockSize*6], 4 );
+  memcpy( buffer128, &buffer[28+blockSize*6], 4 );
+  if( myIsLittleEndian ) {
+    cseis_geolib::swapEndian( buffer128, 4, 4 );
+  }
+  memcpy( &block7.compoundLowcutFilter, &buffer128[28], 4 );
 }
 
 namespace cseis_segd {

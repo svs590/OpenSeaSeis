@@ -18,18 +18,17 @@ import javax.swing.JToolBar;
  * @author 2013 Felipe Punto
  */
 public class csSeaViewToolBarLeft extends JToolBar {
-  private JButton myButtonZoomInVert;
-  private JButton myButtonZoomInHorz;
-  private JButton myButtonZoomOutVert;
-  private JButton myButtonZoomOutHorz;
-  private JButton myButtonZoomInBoth;
-  private JButton myButtonZoomOutBoth;
-  private JButton myButtonFitToScreen;
+  private final JButton myButtonZoomInVert;
+  private final JButton myButtonZoomInHorz;
+  private final JButton myButtonZoomOutVert;
+  private final JButton myButtonZoomOutHorz;
+  private final JButton myButtonZoomInBoth;
+  private final JButton myButtonZoomOutBoth;
+  private final JButton myButtonFitToScreen;
 
   private JToggleButton myButtonKillTraceMode;
   private JToggleButton myButtonSpectrum;
   private JToggleButton myButtonRubberZoom;
-  private JToggleButton myButtonPickMode;
   private JToggleButton myButtonPanMode;
   private SeaView mySeaView;
 
@@ -46,7 +45,6 @@ public class csSeaViewToolBarLeft extends JToolBar {
     myButtonSpectrum    = new JToggleButton( csSeaViewActions.getIcon(csSeaViewActions.SpectrumAction) );
     myButtonRubberZoom  = new JToggleButton( csSeaViewActions.getIcon(csSeaViewActions.RubberBandZoomAction) );
     myButtonPanMode     = new JToggleButton( csSeaViewActions.getIcon(csSeaViewActions.PanModeAction) );
-    myButtonPickMode     = new JToggleButton( csSeaViewActions.getIcon(csSeaViewActions.PickModeAction) );
     myButtonKillTraceMode   = new JToggleButton( csSeaViewActions.getIcon(csSeaViewActions.KillTraceAction) );
     myButtonFitToScreen     = new JButton( csSeaViewActions.getIcon(csSeaViewActions.FitToScreenAction) );
 
@@ -59,13 +57,11 @@ public class csSeaViewToolBarLeft extends JToolBar {
     myButtonSpectrum   .setToolTipText( csSeaViewActions.ACTION_DESC[csSeaViewActions.SpectrumAction] );
     myButtonRubberZoom .setToolTipText( csSeaViewActions.ACTION_DESC[csSeaViewActions.RubberBandZoomAction] );
     myButtonPanMode    .setToolTipText( csSeaViewActions.ACTION_DESC[csSeaViewActions.PanModeAction] );
-    myButtonPickMode    .setToolTipText( csSeaViewActions.ACTION_DESC[csSeaViewActions.PickModeAction] );
     myButtonKillTraceMode.setToolTipText( csSeaViewActions.ACTION_DESC[csSeaViewActions.KillTraceAction] );
     myButtonFitToScreen    .setToolTipText( csSeaViewActions.ACTION_DESC[csSeaViewActions.FitToScreenAction] );
     
     add(myButtonRubberZoom);
     add(myButtonPanMode);
-    add(myButtonPickMode);
     add(myButtonSpectrum);
     add(myButtonKillTraceMode);
     addSeparator();
@@ -90,15 +86,6 @@ public class csSeaViewToolBarLeft extends JToolBar {
       @Override
       public void actionPerformed( ActionEvent e ) {
         mySeaView.setMouseMode( csMouseModes.PAN_MODE, myButtonPanMode );
-      }
-    });
-    myButtonPickMode.addActionListener( new ActionListener() {
-      @Override
-      public void actionPerformed( ActionEvent e ) {
-        mySeaView.setMouseMode( csMouseModes.PICK_MODE, myButtonPickMode );
-        if( myButtonPickMode.isSelected() ) {
-          mySeaView.setupPickingMode();
-        }
       }
     });
     myButtonSpectrum.addActionListener( new ActionListener() {
@@ -165,9 +152,6 @@ public class csSeaViewToolBarLeft extends JToolBar {
     else if( myButtonPanMode.isSelected() ) {
       return csMouseModes.PAN_MODE;
     }
-    else if( myButtonPickMode.isSelected() ) {
-      return csMouseModes.PICK_MODE;
-    }
     else if( myButtonSpectrum.isSelected() ) {
       return csMouseModes.SPECTRUM_MODE;
     }
@@ -181,7 +165,6 @@ public class csSeaViewToolBarLeft extends JToolBar {
     myButtonSpectrum.setSelected(false);
     myButtonKillTraceMode.setSelected(false);
     myButtonPanMode.setSelected(false);
-    myButtonPickMode.setSelected(false);
   }
   public void setToolbarEnabled( boolean set ) {
     myButtonRubberZoom.setEnabled(set);
@@ -196,7 +179,6 @@ public class csSeaViewToolBarLeft extends JToolBar {
     myButtonKillTraceMode.setEnabled(set);
     myButtonSpectrum.setEnabled(set);
     myButtonPanMode.setEnabled(set);
-    myButtonPickMode.setEnabled(set);
   }
 }
 

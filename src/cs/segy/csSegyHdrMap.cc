@@ -485,8 +485,8 @@ void csSegyHdrMap::init( bool initScalars_in ) {
     addHeader( "filt_alias_db", 142, 2, TYPE_INT, "Alias filter slope [dB/oct]" );
     addHeader( "filt_notch_freq", 144, 2, TYPE_INT, "Notch filter frequency [Hz]" );
     addHeader( "filt_notch_db", 146, 2, TYPE_INT, "Notch filter slope [dB/oct]" );
-    addHeader( 148, 2, TYPE_INT, HDR_FILT_HIGH_FREQ );
-    addHeader( 150, 2, TYPE_INT, HDR_FILT_LOW_FREQ );
+    addHeader( 148, 2, TYPE_INT, HDR_FILT_LOW_FREQ ); // Corrected 14/11/4
+    addHeader( 150, 2, TYPE_INT, HDR_FILT_HIGH_FREQ );// Corrected 14/11/4
     addHeader( 152, 2, TYPE_INT, HDR_FILT_LOW_DB );
     addHeader( 154, 2, TYPE_INT, HDR_FILT_HIGH_DB );
 

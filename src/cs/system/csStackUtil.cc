@@ -100,7 +100,6 @@ void csStackUtil::stackTraces( csTraceGather* traceGather ) {
     }
   }
   normStackedTrace( traceOut, nTraces );
-
   traceGather->freeTraces( 1, nTraces-1 );
 }
 //-----------------------------------------------------------
@@ -163,22 +162,22 @@ void csStackUtil::stackTrace( csTrace* stackedTrace, csTrace const* traceIn, boo
 //-----------------------------------------------------------
 //
 void csStackUtil::normStackedTraceOld( csTrace* trace, int nTraces ) {
-  float* samplesOut = trace->getTraceSamples();
-  
-  float norm = 1.0;
-  if( myNormFactor == 0.5 ) {
-    norm = sqrt((float)nTraces);
-  }
-  else if( myNormFactor == 1.0 ) {
-    norm = (float)nTraces;
-  }
-  else if( myNormFactor == 0.0 ) {
-    norm = 1.0;
-  }
-  else {
-    norm = pow( nTraces, myNormFactor );
-  }
   if( !myNormTimeVariant ) {
+    float* samplesOut = trace->getTraceSamples();
+  
+    float norm = 1.0;
+    if( myNormFactor == 0.5 ) {
+      norm = sqrt((float)nTraces);
+    }
+    else if( myNormFactor == 1.0 ) {
+      norm = (float)nTraces;
+    }
+    else if( myNormFactor == 0.0 ) {
+      norm = 1.0;
+    }
+    else {
+      norm = pow( nTraces, myNormFactor );
+    }
     for( int isamp = 0; isamp < myNumSamples; isamp++ ) {
       samplesOut[isamp] /= norm;
     }
@@ -202,9 +201,8 @@ void csStackUtil::normStackedTraceOld( csTrace* trace, int nTraces ) {
 }
 void csStackUtil::normStackedTrace( csTrace* trace, int nTraces ) {
   normStackedTraceOld( trace, nTraces );
-  float* samplesOut = trace->getTraceSamples();
-
   if( myNormTimeVariant ) {
+    float* samplesOut = trace->getTraceSamples();
     int keyValue = 0;
     if( myHdrId_keyValue >= 0 ) keyValue = trace->getTraceHeader()->intValue(myHdrId_keyValue);
     std::map<int,int>::iterator iter = myNormTraceIndexMap->find( keyValue );
@@ -226,7 +224,7 @@ void csStackUtil::normStackedTrace( csTrace* trace, int nTraces ) {
         samplesOut[isamp] = normTrace[isamp];
       }
     }
-  }
+  } // END norm time variant
 }
 void csStackUtil::stackHeaders( csTraceHeader* trcHdrOut, csTraceHeader const* trcHdrIn ) {
   int nHeaders = trcHdrIn->numHeaders();

@@ -55,6 +55,10 @@ class csTraceHeaderDef {
    */
   csTraceHeaderDef( int numInputPorts, csTraceHeaderDef const** hdefPrev, csMemoryPoolManager* memManager );
   /**
+   * Use this constructor to create plain & empty header definition. This can be populated later using addHeader() functions
+   */
+  csTraceHeaderDef( csMemoryPoolManager* memManager );
+  /**
    * Use this constructor to create header definitions for any other purpose
    * @param refHdrDefPtr:  Reference header definition. Required input parameter for internal settings.
    */

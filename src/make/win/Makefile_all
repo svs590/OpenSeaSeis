@@ -9,9 +9,9 @@ OBJ_SEGD = $(OBJDIR)/csExternalHeader.o $(OBJDIR)/csGCS90Header.o $(OBJDIR)/csNa
 
 OBJ_SYSTEM  = $(OBJDIR)/csTrace.o $(OBJDIR)/csTracePool.o $(OBJDIR)/csTraceHeaderDef.o $(OBJDIR)/csTraceHeaderData.o $(OBJDIR)/csTraceHeader.o $(OBJDIR)/csModule.o $(OBJDIR)/csMethodRetriever.o $(OBJDIR)/csTraceGather.o $(OBJDIR)/csExecPhaseDef.o $(OBJDIR)/csUserConstant.o $(OBJDIR)/csUserParam.o $(OBJDIR)/csParamDef.o $(OBJDIR)/geolib_methods.o $(OBJDIR)/csSuperHeader.o $(OBJDIR)/csParamManager.o $(OBJDIR)/csTraceHeaderInfoPool.o $(OBJDIR)/csLogWriter.o $(OBJDIR)/csInitExecEnv.o $(OBJDIR)/csMemoryPoolManager.o $(OBJDIR)/csTraceData.o $(OBJDIR)/csSelectionManager.o $(OBJDIR)/csSeismicWriter.o $(OBJDIR)/csSeismicReader.o $(OBJDIR)/csStackUtil.o $(OBJDIR)/csTableManager.o $(OBJDIR)/csTableManagerNew.o
 
-OBJ_IO = $(OBJDIR)/csSeismicWriter_ver.o $(OBJDIR)/csSeismicIOConfig.o $(OBJDIR)/csSeismicReader_ver.o $(OBJDIR)/csSeismicReader_ver00.o $(OBJDIR)/csSeismicReader_ver01.o $(OBJDIR)/csSeismicReader_ver02.o $(OBJDIR)/csSeismicReader_ver03.o $(OBJDIR)/csASCIIFileReader.o $(OBJDIR)/csIOSelection.o $(OBJDIR)/csIReader.o $(OBJDIR)/csRSFHeader.o $(OBJDIR)/csRSFReader.o $(OBJDIR)/csRSFWriter.o
+OBJ_IO = $(OBJDIR)/csSeismicWriter_ver.o $(OBJDIR)/csSeismicIOConfig.o $(OBJDIR)/csSeismicReader_ver.o $(OBJDIR)/csSeismicReader_ver00.o $(OBJDIR)/csSeismicReader_ver01.o $(OBJDIR)/csSeismicReader_ver02.o $(OBJDIR)/csSeismicReader_ver03.o $(OBJDIR)/csSeismicReader_ver04.o $(OBJDIR)/csASCIIFileReader.o $(OBJDIR)/csIOSelection.o $(OBJDIR)/csIReader.o $(OBJDIR)/csRSFHeader.o $(OBJDIR)/csRSFReader.o $(OBJDIR)/csRSFWriter.o $(OBJDIR)/csP190Reader.o
 
-OBJ_MODULES = $(OBJDIR)/mod_if.o $(OBJDIR)/mod_elseif.o $(OBJDIR)/mod_else.o $(OBJDIR)/mod_endif.o $(OBJDIR)/mod_endsplit.o $(OBJDIR)/mod_split.o $(OBJDIR)/mod_input_segy.o $(OBJDIR)/mod_input_ascii.o $(OBJDIR)/mod_hdr_print.o $(OBJDIR)/mod_kill.o $(OBJDIR)/mod_scaling.o $(OBJDIR)/mod_input_segd.o $(OBJDIR)/mod_ens_define.o $(OBJDIR)/mod_hdr_del.o $(OBJDIR)/mod_hdr_math.o $(OBJDIR)/mod_repeat.o $(OBJDIR)/mod_select.o $(OBJDIR)/mod_trc_print.o $(OBJDIR)/mod_select_time.o $(OBJDIR)/mod_despike.o $(OBJDIR)/mod_correlation.o $(OBJDIR)/mod_orient_convert.o $(OBJDIR)/mod_orient.o $(OBJDIR)/mod_resequence.o $(OBJDIR)/mod_read_ascii.o $(OBJDIR)/mod_trc_interpol.o $(OBJDIR)/mod_output_segy.o $(OBJDIR)/mod_output.o $(OBJDIR)/mod_input.o $(OBJDIR)/mod_fft.o $(OBJDIR)/mod_fft_2d.o $(OBJDIR)/mod_off2angle.o $(OBJDIR)/mod_rotate.o $(OBJDIR)/mod_hodogram.o $(OBJDIR)/mod_sort.o $(OBJDIR)/mod_stack.o $(OBJDIR)/mod_statics.o $(OBJDIR)/mod_resample.o $(OBJDIR)/mod_rms.o $(OBJDIR)/mod_picking.o $(OBJDIR)/mod_input_sinewave.o $(OBJDIR)/mod_poscalc.o $(OBJDIR)/mod_hdr_math_ens.o $(OBJDIR)/mod_debias.o $(OBJDIR)/mod_geotools.o $(OBJDIR)/mod_gain.o $(OBJDIR)/mod_semblance.o $(OBJDIR)/mod_filter.o $(OBJDIR)/mod_nmo.o $(OBJDIR)/mod_mute.o $(OBJDIR)/mod_ccp.o $(OBJDIR)/mod_cmp.o $(OBJDIR)/mod_splitting.o $(OBJDIR)/mod_kill_ens.o $(OBJDIR)/mod_time_stretch.o $(OBJDIR)/mod_trc_math.o $(OBJDIR)/mod_trc_math_ens.o $(OBJDIR)/mod_trc_split.o $(OBJDIR)/mod_concatenate.o $(OBJDIR)/mod_hdr_set.o $(OBJDIR)/mod_overlap.o $(OBJDIR)/mod_trc_add_ens.o $(OBJDIR)/mod_test.o $(OBJDIR)/mod_test_multi_ensemble.o $(OBJDIR)/mod_test_multi_fixed.o $(OBJDIR)/mod_input_create.o $(OBJDIR)/mod_attribute.o $(OBJDIR)/mod_lmo.o $(OBJDIR)/mod_histogram.o $(OBJDIR)/mod_image.o $(OBJDIR)/mod_time_slice.o $(OBJDIR)/mod_pz_sum.o $(OBJDIR)/mod_bin.o $(OBJDIR)/mod_mirror.o $(OBJDIR)/mod_beam_forming.o $(OBJDIR)/mod_sumodule.o $(OBJDIR)/mod_designature.o $(OBJDIR)/mod_ray2d.o $(OBJDIR)/mod_input_rsf.o $(OBJDIR)/mod_output_rsf.o $(OBJDIR)/mod_convolution.o
+OBJ_MODULES = $(OBJDIR)/mod_if.o $(OBJDIR)/mod_elseif.o $(OBJDIR)/mod_else.o $(OBJDIR)/mod_endif.o $(OBJDIR)/mod_endsplit.o $(OBJDIR)/mod_split.o $(OBJDIR)/mod_input_segy.o $(OBJDIR)/mod_input_ascii.o $(OBJDIR)/mod_hdr_print.o $(OBJDIR)/mod_kill.o $(OBJDIR)/mod_scaling.o $(OBJDIR)/mod_input_segd.o $(OBJDIR)/mod_ens_define.o $(OBJDIR)/mod_hdr_del.o $(OBJDIR)/mod_hdr_math.o $(OBJDIR)/mod_repeat.o $(OBJDIR)/mod_select.o $(OBJDIR)/mod_trc_print.o $(OBJDIR)/mod_select_time.o $(OBJDIR)/mod_despike.o $(OBJDIR)/mod_correlation.o $(OBJDIR)/mod_orient_convert.o $(OBJDIR)/mod_orient.o $(OBJDIR)/mod_resequence.o $(OBJDIR)/mod_read_ascii.o $(OBJDIR)/mod_trc_interpol.o $(OBJDIR)/mod_output_segy.o $(OBJDIR)/mod_output.o $(OBJDIR)/mod_input.o $(OBJDIR)/mod_fft.o $(OBJDIR)/mod_fft_2d.o $(OBJDIR)/mod_off2angle.o $(OBJDIR)/mod_rotate.o $(OBJDIR)/mod_hodogram.o $(OBJDIR)/mod_sort.o $(OBJDIR)/mod_stack.o $(OBJDIR)/mod_statics.o $(OBJDIR)/mod_resample.o $(OBJDIR)/mod_rms.o $(OBJDIR)/mod_picking.o $(OBJDIR)/mod_input_sinewave.o $(OBJDIR)/mod_poscalc.o $(OBJDIR)/mod_hdr_math_ens.o $(OBJDIR)/mod_debias.o $(OBJDIR)/mod_geotools.o $(OBJDIR)/mod_gain.o $(OBJDIR)/mod_semblance.o $(OBJDIR)/mod_filter.o $(OBJDIR)/mod_nmo.o $(OBJDIR)/mod_mute.o $(OBJDIR)/mod_ccp.o $(OBJDIR)/mod_cmp.o $(OBJDIR)/mod_splitting.o $(OBJDIR)/mod_kill_ens.o $(OBJDIR)/mod_time_stretch.o $(OBJDIR)/mod_trc_math.o $(OBJDIR)/mod_trc_math_ens.o $(OBJDIR)/mod_trc_split.o $(OBJDIR)/mod_concatenate.o $(OBJDIR)/mod_hdr_set.o $(OBJDIR)/mod_overlap.o $(OBJDIR)/mod_trc_add_ens.o $(OBJDIR)/mod_test.o $(OBJDIR)/mod_test_multi_ensemble.o $(OBJDIR)/mod_test_multi_fixed.o $(OBJDIR)/mod_input_create.o $(OBJDIR)/mod_attribute.o $(OBJDIR)/mod_lmo.o $(OBJDIR)/mod_histogram.o $(OBJDIR)/mod_image.o $(OBJDIR)/mod_time_slice.o $(OBJDIR)/mod_pz_sum.o $(OBJDIR)/mod_bin.o $(OBJDIR)/mod_mirror.o $(OBJDIR)/mod_beam_forming.o $(OBJDIR)/mod_sumodule.o $(OBJDIR)/mod_designature.o $(OBJDIR)/mod_ray2d.o $(OBJDIR)/mod_input_rsf.o $(OBJDIR)/mod_output_rsf.o $(OBJDIR)/mod_convolution.o $(OBJDIR)/mod_p190.o
 
 OBJ_RAY2D = $(OBJDIR)/model.o $(OBJDIR)/velocity.o $(OBJDIR)/get_min.o $(OBJDIR)/get_z.o $(OBJDIR)/get_acth.o $(OBJDIR)/get_boundray.o $(OBJDIR)/get_cornerrays.o $(OBJDIR)/get_flag.o $(OBJDIR)/get_rtsect.o $(OBJDIR)/sortraycode.o $(OBJDIR)/propagate.o $(OBJDIR)/do_interpol.o $(OBJDIR)/interpol.o $(OBJDIR)/collect.o $(OBJDIR)/paraxial.o $(OBJDIR)/intersect_ray.o $(OBJDIR)/intersect_wfront.o $(OBJDIR)/do_intersect.o $(OBJDIR)/intersect.o $(OBJDIR)/record.o $(OBJDIR)/interpol_extra.o $(OBJDIR)/sortsect.o $(OBJDIR)/runkutta.o $(OBJDIR)/coef8.o $(OBJDIR)/refstack.o $(OBJDIR)/wfront_sub.o $(OBJDIR)/wfront_check_params.o $(OBJDIR)/addRickerWavelet.o $(OBJDIR)/check_sou_loc.o
 
@@ -246,6 +246,9 @@ $(OBJDIR)/csSeismicReader_ver02.o: src/cs/io/csSeismicReader_ver02.cc   src/cs/i
 $(OBJDIR)/csSeismicReader_ver03.o: src/cs/io/csSeismicReader_ver03.cc   src/cs/io/csSeismicReader_ver03.h
 	$(CPP) -c src/cs/io/csSeismicReader_ver03.cc -o $(OBJDIR)/csSeismicReader_ver03.o $(CXXFLAGS_SYSTEM)
 
+$(OBJDIR)/csSeismicReader_ver04.o: src/cs/io/csSeismicReader_ver04.cc   src/cs/io/csSeismicReader_ver04.h
+	$(CPP) -c src/cs/io/csSeismicReader_ver04.cc -o $(OBJDIR)/csSeismicReader_ver04.o $(CXXFLAGS_SYSTEM)
+
 $(OBJDIR)/csASCIIFileReader.o: src/cs/io/csASCIIFileReader.cc   src/cs/io/csASCIIFileReader.h
 	$(CPP) -c src/cs/io/csASCIIFileReader.cc -o $(OBJDIR)/csASCIIFileReader.o $(CXXFLAGS_SYSTEM)
 
@@ -263,6 +266,9 @@ $(OBJDIR)/csRSFReader.o: src/cs/io/csRSFReader.cc   src/cs/io/csRSFReader.h
 
 $(OBJDIR)/csRSFWriter.o: src/cs/io/csRSFWriter.cc   src/cs/io/csRSFWriter.h
 	$(CPP) -c src/cs/io/csRSFWriter.cc -o $(OBJDIR)/csRSFWriter.o $(CXXFLAGS_SYSTEM)
+
+$(OBJDIR)/csP190Reader.o: src/cs/io/csP190Reader.cc   src/cs/io/csP190Reader.h
+	$(CPP) -c src/cs/io/csP190Reader.cc -o $(OBJDIR)/csP190Reader.o $(CXXFLAGS_SYSTEM)
 
 
 $(OBJDIR)/methods_orientation.o: src/cs/geolib/methods_orientation.cc
@@ -406,6 +412,9 @@ $(OBJDIR)/mod_output_rsf.o: src/cs/modules/output_rsf/mod_output_rsf.cc
 
 $(OBJDIR)/mod_convolution.o: src/cs/modules/convolution/mod_convolution.cc
 	$(CPP) -c $(CXXFLAGS_MODULES) src/cs/modules/convolution/mod_convolution.cc -o $(OBJDIR)/mod_convolution.o
+
+$(OBJDIR)/mod_p190.o: src/cs/modules/p190/mod_p190.cc
+	$(CPP) -c $(CXXFLAGS_MODULES) src/cs/modules/p190/mod_p190.cc -o $(OBJDIR)/mod_p190.o
 
 $(OBJDIR)/mod_hdr_print.o: src/cs/modules/hdr_print/mod_hdr_print.cc
 	$(CPP) -c $(CXXFLAGS_MODULES) src/cs/modules/hdr_print/mod_hdr_print.cc -o $(OBJDIR)/mod_hdr_print.o
