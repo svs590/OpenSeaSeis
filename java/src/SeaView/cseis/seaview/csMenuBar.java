@@ -159,6 +159,12 @@ public class csMenuBar extends JMenuBar {
     menuOpenFiletype  = new JMenu("Open file");
     menuOpenSegy    = new JMenuItem("Open SEG-Y file...check SEGY/SU-Setup options on menubar to make sure endian is correct!");
     menuOpenSegy.setToolTipText("Open SEG-Y file");
+    menuOpenSegd    = new JMenuItem("Open SEG-D file...");
+    menuOpenSegd.setToolTipText("Open SEG-D file");
+    menuOpenRSF    = new JMenuItem("Open RSF file...");
+    menuOpenRSF.setToolTipText("Open RSF (Seplib/Madagascar) file");
+    menuOpenSU    = new JMenuItem("Open SU file...check SEGY/SU-Setup options on menubar to make sure endian is correct!");
+    menuOpenSU.setToolTipText("Open SU file...");
     menuOpenCseis    = new JMenuItem("Open Seaseis file...");
     menuOpenCseis.setToolTipText("Open Seaseis (.cseis) file");
     menuOpenASCII    = new JMenuItem("Open ASCII file...");
