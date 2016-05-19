@@ -165,10 +165,15 @@ void init_mod_time_slice_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
     }
     hdef->resetByteLocation();
 
+    vars->sampleIntIn = shdr->sampleInt;
+    vars->numSamplesIn = shdr->numSamples;
+    shdr->numSamples = vars->dim1.nVal;
+    shdr->sampleInt = (float)vars->dim1.inc * 1000.0;
+
     vars->gather = new csTraceGather( hdef );
     vars->gather->createTraces( 0, vars->dim2.nVal*vars->nSlices, hdef, shdr->numSamples );
     for( int islice = 0; islice < vars->nSlices; islice++ ) {
-      float time = (float)vars->sampleIndexSlice[islice] * shdr->sampleInt;
+      float time = (float)vars->sampleIndexSlice[islice] * vars->sampleIntIn;
       for( int itrc = 0; itrc < vars->dim2.nVal; itrc++ ) {
         int indexTrace = islice * vars->dim2.nVal + itrc;
         csTraceHeader* trcHdr = vars->gather->trace(indexTrace)->getTraceHeader();
@@ -181,10 +186,6 @@ void init_mod_time_slice_( csParamManager* param, csInitPhaseEnv* env, csLogWrit
       }
     }
 
-    vars->sampleIntIn  = shdr->sampleInt;
-    vars->numSamplesIn = shdr->numSamples;
-    shdr->numSamples = vars->dim1.nVal;
-    shdr->sampleInt  = (float)vars->dim1.inc * 1000.0f;
   } //----------------------------------------------------------------------------------------
   else if( vars->mode == mod_time_slice::MODE_HEADER ) {
     vars->nSlices = param->getNumLines("slice");

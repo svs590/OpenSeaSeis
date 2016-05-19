@@ -145,9 +145,17 @@ void init_mod_fft_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* log
     bool overrideFX = false;
     param->getString("override", &text);
     text = toLowerCase( text );
-    if( text.compare("yes") == 0 ) {
+    if( text.compare("xt") == 0 ) {
+      shdr->domain = DOMAIN_XT;
+    }
+    else if( text.compare("xd") == 0 ) {
+      shdr->domain = DOMAIN_XD;
+    }
+    else if( text.compare("fx")  == 0 ) {
       overrideFX = true;
-    } else if( text.compare("no")  == 0 ) {
+      shdr->domain = DOMAIN_FX;
+    }
+    else if( text.compare("no")  == 0 ) {
       // Nothing
     } else {
       log->line("ERROR:Unknown 'override' option: %s", text.c_str());

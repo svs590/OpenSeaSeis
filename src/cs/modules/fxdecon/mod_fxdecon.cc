@@ -17,10 +17,14 @@ using namespace std;
 namespace mod_fxdecon {
   struct VariableStruct {
     csFXDecon* fxdecon;
+    int output;
   };
   static int const MODE_ENSEMBLE = 11;
   static int const MODE_TRACE    = 12;
   static int const MODE_ALL      = 13;
+
+  static int const OUTPUT_FILT    = 41;
+  static int const OUTPUT_DIFF    = 42;
 }
 using namespace mod_fxdecon;
 
@@ -39,6 +43,7 @@ void init_mod_fxdecon_( csParamManager* param, csInitPhaseEnv* env, csLogWriter*
   edef->setVariables( vars );
 
   vars->fxdecon = NULL;
+  vars->output = OUTPUT_FILT;
 
   edef->setExecType( EXEC_TYPE_MULTITRACE );
   env->execPhaseDef->setTraceSelectionMode( TRCMODE_ENSEMBLE );
@@ -77,7 +82,17 @@ void init_mod_fxdecon_( csParamManager* param, csInitPhaseEnv* env, csLogWriter*
     param->getInt( "win_traces", &attr.ntraces_design, 0 );
     param->getInt( "win_traces", &attr.ntraces_filter, 1 );
   }
-
+  if( param->exists("output") ) {
+    std::string text;
+    param->getString("output", &text );
+    if( !text.compare("filt") ) {
+      vars->output = mod_fxdecon::OUTPUT_FILT;
+    }
+    else if( !text.compare("diff") ) {
+      vars->output = mod_fxdecon::OUTPUT_DIFF;
+    }
+  }
+ 
   vars->fxdecon = new mod_fxdecon::csFXDecon();
   attr.taperLen_s = attr.taperLen_samp * shdr->sampleInt / 1000.0;
   if( attr.numWin == 0 ) attr.taperLen_s = 0;
@@ -104,7 +119,7 @@ void exec_mod_fxdecon_(
 {
   VariableStruct* vars = reinterpret_cast<VariableStruct*>( env->execPhaseDef->variables() );
   csExecPhaseDef* edef = env->execPhaseDef;
-  //  csSuperHeader const* shdr = env->superHeader;
+  csSuperHeader const* shdr = env->superHeader;
 
   if( edef->isCleanup() ) {
     if( vars->fxdecon != NULL ) {
@@ -162,6 +177,11 @@ void params_mod_fxdecon_( csParamDef* pdef ) {
 
   pdef->addParam( "taper_len", "Taper length [ms]", NUM_VALUES_FIXED );
   pdef->addValue( "100", VALTYPE_NUMBER );
+  pdef->addParam( "output", "Output data", NUM_VALUES_FIXED );
+
+  pdef->addValue( "filt", VALTYPE_OPTION );
+  pdef->addOption( "filt", "Output filtered data" );
+  pdef->addOption( "diff", "Output difference between input and filtered data" );
 }
 
 extern "C" void _params_mod_fxdecon_( csParamDef* pdef ) {

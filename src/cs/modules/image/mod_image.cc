@@ -530,7 +530,7 @@ void init_mod_image_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* l
       log->warning("Specify either parameter wiggle_color_map OR custom_wiggle_color_map, not both. custom_wiggle_color_map will be ignored");
     }
     else {
-      param->getString( "wiggle_color_map", &text );
+      param->getString( "custom_wiggle_color_map", &text );
       fprintf(foutProp,"wiggleColorMap:%s\n", text.c_str());
     }
   }

@@ -62,6 +62,7 @@ namespace mod_fft_2d {
     // Related headers
     string KHeader;         // Name of header to store delta K
     int    KID;             // Header index of KHeader
+    int hdrID_knorm; // Header index of k_norm header
     float  deltaK;          // wave number increment. 
     string padHeader;       // Name of header to flag padded traces (1=pad, 0=orig)
     int    padID;           // Header index of padHeader
@@ -119,6 +120,7 @@ void init_mod_fft_2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
   vars->normalize      = false;
   vars->taperType      = TAPER_NONE;
   vars->taperLengthInSamples = 20 / shdr->sampleInt;
+  vars->hdrID_knorm = -1;
 
   vars->nSamplesInput   = shdr->numSamples;
   vars->sampleRateInput = shdr->sampleInt;
@@ -394,6 +396,10 @@ void init_mod_fft_2d_( csParamManager* param, csInitPhaseEnv* env, csLogWriter* 
       }
     }
     vars->KID = hdef->headerIndex( vars->KHeader );    
+    if( !hdef->headerExists( "k_norm" ) ) {
+      hdef->addHeader( TYPE_FLOAT, "k_norm" );
+    }
+    vars->hdrID_knorm = hdef->headerIndex( "k_norm" );
 
     // Evaluate frequency info
     vars->timeSampleRate = vars->sampleRateInput;
@@ -656,6 +662,7 @@ void exec_mod_fft_2d_(
     int KID   = vars->KID;
     int padID = vars->padID;
     int ipad  = 0; 
+    float knormValue = 2.0 / (float)(numTracesIn-1);
     for(itrc=0; itrc<nxp; itrc++ ) {
       if ( itrc == numTracesIn  ) ipad=1;
       traceGather->trace(itrc)->getTraceHeader()->setIntValue( padID, ipad );
@@ -666,11 +673,15 @@ void exec_mod_fft_2d_(
     float myK;
     for(itrc=0; itrc<n2_1; itrc++ ) {
       myK = -1.0 * (float)(n2_1-itrc-1) * vars->deltaK; 
-      traceGather->trace(itrc)->getTraceHeader()->setIntValue( KID, (int)myK );
+      csTraceHeader* trcHdr = traceGather->trace(itrc)->getTraceHeader();
+      trcHdr->setIntValue( KID, (int)myK );
+      trcHdr->setFloatValue( vars->hdrID_knorm, myK*knormValue );
     }
     for(itrc=n2_1; itrc<nxp; itrc++ ) {
       myK = (float)(itrc-n2_1+1) * vars->deltaK; 
-      traceGather->trace(itrc)->getTraceHeader()->setIntValue( KID, (int)myK );
+      csTraceHeader* trcHdr = traceGather->trace(itrc)->getTraceHeader();
+      trcHdr->setIntValue( KID, (int)myK );
+      trcHdr->setFloatValue( vars->hdrID_knorm, myK*knormValue );
     }
 
     double normSpectralDensity = 1.0;
