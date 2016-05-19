@@ -234,15 +234,15 @@ bool csSegyHdrMap::addHeader( std::string const& theName, int theByteLoc, int th
   int hdrIndex;
   int hdrIndexByteLoc;
   if( !getHdrIndex( theName, &hdrIndex, theByteLoc, &hdrIndexByteLoc ) ) {
-    //    myHdrList->insertEnd( new csSegyHeaderInfo( theByteLoc, theByteSize, theInType, theOutType, theName, theDesc ) );
-    myHdrList->insert( new csSegyHeaderInfo( theByteLoc, theByteSize, theInType, theOutType, theName, theDesc ), hdrIndexByteLoc );
+    myHdrList->insertEnd( new csSegyHeaderInfo( theByteLoc, theByteSize, theInType, theOutType, theName, theDesc ) );
+    // myHdrList->insert( new csSegyHeaderInfo( theByteLoc, theByteSize, theInType, theOutType, theName, theDesc ), hdrIndexByteLoc );
     return true;
   }
   else if( myReplaceExistingHeader ) {
     removeHeader( hdrIndex );
     if( !getHdrIndex( theName, &hdrIndex, theByteLoc, &hdrIndexByteLoc ) ) {
-      //      myHdrList->insertEnd( new csSegyHeaderInfo( theByteLoc, theByteSize, theInType, theOutType, theName, theDesc ) );
-      myHdrList->insert( new csSegyHeaderInfo( theByteLoc, theByteSize, theInType, theOutType, theName, theDesc ), hdrIndexByteLoc );
+      myHdrList->insertEnd( new csSegyHeaderInfo( theByteLoc, theByteSize, theInType, theOutType, theName, theDesc ) );
+      //  myHdrList->insert( new csSegyHeaderInfo( theByteLoc, theByteSize, theInType, theOutType, theName, theDesc ), hdrIndexByteLoc );
       return true;
     }
     else {

@@ -276,18 +276,18 @@ void init_mod_output_segy_( csParamManager* param, csInitPhaseEnv* env, csLogWri
     //    vars->hdrMap = new csSegyHdrMap( vars->hdr_mapping, false, filename_hdrmap );
   }
 
-  //  bool isHdrMapDump = false;
+  bool isHdrMapDump = false;
   if( param->exists("dump_hdrmap") ) {
     param->getString( "dump_hdrmap", &yesno );
     yesno = toLowerCase( yesno );
     if( !yesno.compare( "yes" ) ) {
-      //      isHdrMapDump = true;
+      isHdrMapDump = true;
       log->line(" *** Dump of SEGY trace header map (excluding user specified non-standard headers) ***");
       userHdrMap.dump( log->getFile() );
       log->line("");
     }
     else if( !yesno.compare( "no" ) ) {
-      //      isHdrMapDump = false;
+      isHdrMapDump = false;
       // Nothing
     }
     else {
@@ -598,6 +598,12 @@ void init_mod_output_segy_( csParamManager* param, csInitPhaseEnv* env, csLogWri
   binHdr->revisionNum      = 0000;
   binHdr->fixedTraceLengthFlag = 0;
   binHdr->numExtendedBlocks    = 0;
+
+  if( isHdrMapDump ) {
+    log->line("*** Dump of SEGY trace header map ***");
+    finalHdrMap.dump(log->getFile() );
+    log->line("");
+  }
 
   //----------------------------------------------------
   try {
