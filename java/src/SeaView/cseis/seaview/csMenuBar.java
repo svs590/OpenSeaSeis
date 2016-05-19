@@ -64,6 +64,8 @@ public class csMenuBar extends JMenuBar {
   private JMenuItem menuOpenCseis;
   private JMenuItem menuOpenSU;
   private JMenuItem menuOpenASCII;
+  private JMenuItem menuOpenJPG;
+  private JMenuItem menuOpenBackground;
 
   private JMenuItem menuExit;
   private JMenuItem menuPreferences;
@@ -90,6 +92,7 @@ public class csMenuBar extends JMenuBar {
   
   private JMenuItem menuCombineData;
   private JMenuItem menuColorMaps;
+  private JMenuItem menuVelocityAnalysis;
 
   private JCheckBoxMenuItem menuShowColorbar;
   private JCheckBoxMenuItem menuShowAbsoluteTime;
@@ -155,7 +158,7 @@ public class csMenuBar extends JMenuBar {
     menuCombineData.setToolTipText("Perform operation on two data sets, create new data set");
     menuColorMaps = new JMenuItem("Manage color maps...");
     menuColorMaps.setToolTipText("Create/modify custom color maps...");
-    
+
     menuOpenFiletype  = new JMenu("Open file");
     menuOpenSegy    = new JMenuItem("Open SEG-Y file...check SEGY/SU-Setup options on menubar to make sure endian is correct!");
     menuOpenSegy.setToolTipText("Open SEG-Y file");
@@ -171,7 +174,14 @@ public class csMenuBar extends JMenuBar {
     menuOpenASCII.setToolTipText("<html>Open ASCII text file containing a table of sample values.<br>" +
       "Each line contains a space-separated list of values.<br>" +
       "Each column is one trace, each line is one sample time.</html>");
-    
+    menuOpenJPG    = new JMenuItem("Open JPEG file...");
+    menuOpenJPG.setToolTipText("Open JPEG image file as seismic");
+    menuOpenBackground    = new JMenuItem("Open background...");
+    menuOpenBackground.setToolTipText("Open background seismic/image/velocity for active pane");
+    menuVelocityAnalysis    = new JMenuItem("Velocity analysis...");
+    menuVelocityAnalysis.setToolTipText("<html>Velocity picking on semblance plot.<br>" +
+            "<i>Note: A semblance plot must have been opened previously, consisting of one or several 1D/2D/3D CDP gathers.</i></html>");
+
     menuGraphSelection = new JMenuItem( csSeaViewActions.ACTION_TITLE[csSeaViewActions.ShowGraphAction], csSeaViewActions.getIcon(csSeaViewActions.ShowGraphAction) );
     menuGraphSelection.setToolTipText( csSeaViewActions.ACTION_DESC[csSeaViewActions.ShowGraphAction] );
 
@@ -250,6 +260,7 @@ public class csMenuBar extends JMenuBar {
 
     menuFile.add(menuOpen);
     menuFile.add(menuOpenFiletype);
+//    menuFile.add(menuOpenBackground);
     menuFile.addSeparator();
     menuFile.add(menuRefresh);
     menuFile.addSeparator();
@@ -269,6 +280,7 @@ public class csMenuBar extends JMenuBar {
     menuOpenFiletype.add(menuOpenSU);
     menuOpenFiletype.add(menuOpenRSF);
     menuOpenFiletype.add(menuOpenASCII);
+    menuOpenFiletype.add(menuOpenJPG);
     
     menuView.add(menuHighlight);
     menuView.add(menuCrosshairOn);
@@ -301,6 +313,9 @@ public class csMenuBar extends JMenuBar {
     menuTools.add(menuCombineData);
     menuTools.addSeparator();
     menuTools.add(menuColorMaps);
+    menuTools.addSeparator();
+    menuTools.add(menuVelocityAnalysis);
+
 
     menuSEGY.add(menuSEGYSetup);
     menuSEGY.add(menuSEGYTrcHdrMaps);
@@ -553,6 +568,18 @@ public class csMenuBar extends JMenuBar {
         }
       }
     });
+    menuOpenBackground.addActionListener( new ActionListener() {
+      @Override
+      public void actionPerformed( ActionEvent e ) {
+//        mySeaView.openBackgroundFile();
+      }
+    });
+    menuVelocityAnalysis.addActionListener( new ActionListener() {
+      @Override
+      public void actionPerformed( ActionEvent e ) {
+        mySeaView.openVelocityAnalysis(false);
+      }
+    });
     menuRefresh.addActionListener( new ActionListener() {
       @Override
       public void actionPerformed( ActionEvent e ) {
@@ -593,6 +620,12 @@ public class csMenuBar extends JMenuBar {
       @Override
       public void actionPerformed( ActionEvent e ) {
         mySeaView.openFile(SeaView.FORMAT_ASCII);
+      }
+    });
+    menuOpenJPG.addActionListener( new ActionListener() {
+      @Override
+      public void actionPerformed( ActionEvent e ) {
+        mySeaView.openFile(SeaView.FORMAT_JPG);
       }
     });
 
