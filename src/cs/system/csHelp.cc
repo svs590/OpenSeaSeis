@@ -432,6 +432,41 @@ void csHelp::moduleHtmlExample( bool printHeader, csParamDef const& pdef, std::s
     text.append("</font></td>\n");
   }
 }
+void csHelp::moduleExample( bool printHeader, csParamDef const& pdef, std::string& text ) const 
+{
+  csParamDescription const* const module = pdef.module();
+  if( printHeader ) {
+    text = text + "# " + module->desc() + "\n";
+  }
+  int nParams = pdef.numParameters();
+  csParamDescription const* valueDescriptor;
+  text = text + "$" + module->name() + "\n";
+
+  int maxNumLetters = 0;
+  for( int ip = 0; ip < nParams; ip++ ) {
+    maxNumLetters = std::max( maxNumLetters, (int)strlen( pdef.param(ip)->name() ) );
+  }
+  maxNumLetters += 2;
+
+  for( int ip = 0; ip < nParams; ip++ ) {
+    text = text + " " + pdef.param(ip)->name() + " ";
+    for( int il = (int)strlen( pdef.param(ip)->name() ) + 2; il < maxNumLetters; il++ ) {
+      text += " ";
+    }
+    int nValues = pdef.numValues(ip);
+    for( int iv = 0; iv < nValues; iv++ ) {
+      valueDescriptor = pdef.value(ip,iv);
+      if( strlen(valueDescriptor->name()) != 0 ) {
+	text.append(valueDescriptor->name());
+        text += "  ";
+      }
+      else {
+	text.append("?  ");
+      }
+    }
+    text.append("\n");
+  }
+}
 //--------------------------------------------------------------------------------
 //
 //
