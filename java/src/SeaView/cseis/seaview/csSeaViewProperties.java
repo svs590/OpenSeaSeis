@@ -28,6 +28,7 @@ public class csSeaViewProperties {
   public String dataDirectoryPath;
   public String screenDumpDirectoryPath;
   public String propertiesDirectoryPath;
+  public String velFieldDirectoryPath;
   public int windowLayout;
 
   public csSegyAttr segyAttr;
@@ -61,6 +62,7 @@ public class csSeaViewProperties {
   public static final String PROPERTY_dataDir          = "dataDir";
   public static final String PROPERTY_screenDumpDir    = "screenDumpDir";
   public static final String PROPERTY_propertyDir      = "propertyDir";
+  public static final String PROPERTY_velFieldDir      = "velFieldDir";
   
   private ArrayList<csCustomColorMap> myCustomColorMapList;
           
@@ -175,12 +177,14 @@ public class csSeaViewProperties {
     propertiesDirectoryPath = p.getProperty( PROPERTY_propertyDir );
     dataDirectoryPath = p.getProperty( PROPERTY_dataDir );
     screenDumpDirectoryPath = p.getProperty( PROPERTY_screenDumpDir );
+    velFieldDirectoryPath = p.getProperty( PROPERTY_velFieldDir );
   }
   public void write() throws IOException {
     Properties p = new Properties();
     p.setProperty( PROPERTY_dataDir, dataDirectoryPath );
     p.setProperty( PROPERTY_screenDumpDir, screenDumpDirectoryPath );
     p.setProperty( PROPERTY_propertyDir, propertiesDirectoryPath );
+    p.setProperty( PROPERTY_velFieldDir, velFieldDirectoryPath );
     p.setProperty( PROPERTY_colorBitType, colorBitType+"" );
     
     p.setProperty( PROPERTY_endianSEGYHdr, segyAttr.endianSEGYHdr.toString() );

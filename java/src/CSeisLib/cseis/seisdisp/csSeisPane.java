@@ -648,7 +648,10 @@ public class csSeisPane extends JPanel implements csISeisViewListener, csIKeyLis
 //            mySeisViewSize.width + " pane: " + getPreferredSize().width);
 //    }
   }
-  
+
+  public void traceBufferChanged( csISeismicTraceBuffer traceBuffer ){
+    // Nothing to do
+  }
   public void changedSettings( csSeisDispSettings settings ) {
     mySideLabelVert.changedSettings(settings);
     mySideLabelHorz.changedSettings(settings);

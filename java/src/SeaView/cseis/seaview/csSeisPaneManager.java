@@ -7,12 +7,10 @@ package cseis.seaview;
 import cseis.general.csColorBarPanel;
 import cseis.general.csColorMap;
 import cseis.seisdisp.csAnnotationAttributes;
-import cseis.seisdisp.csISeisOverlay;
 import cseis.seisdisp.csSampleInfo;
 import cseis.seisdisp.csSeisDispSettings;
 import cseis.seisdisp.csSeisPane;
 import cseis.seisdisp.csSeisView;
-import cseis.seisdisp.csSeisViewFilenameOverlay;
 import java.awt.BorderLayout;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
@@ -31,14 +29,19 @@ import javax.swing.JSplitPane;
 public class csSeisPaneManager {
   private ArrayList<csSeisPaneBundle> myBundleList;
   private SeaView mySeaView;
-  private boolean myIsScrolling;
+  private boolean myIsSyncUpdating;
+  private boolean myIsSyncDispSettings; // Sync display settings across sync'ed seimsic bundles
   private boolean myIsCrosshairSet;
   
   public csSeisPaneManager( SeaView seaview, csAnnotationAttributes annAttr ) {
     myBundleList = new ArrayList<csSeisPaneBundle>();
     mySeaView = seaview;
-    myIsScrolling = false;
+    myIsSyncUpdating = false;
     myIsCrosshairSet = false;
+    myIsSyncDispSettings = false;
+  }
+  public void updateSyncDispSettings( boolean doSync ) {
+    myIsSyncDispSettings = doSync;
   }
   public csSeisPaneBundle add( csSeisView seisViewIn, csTraceSelectionParam traceSelectionParam, cseis.general.csFilename filename, int fileFormat ) {
     csSeisPaneBundle bundle = new csSeisPaneBundle( mySeaView, this, seisViewIn, traceSelectionParam, filename, fileFormat );
@@ -53,14 +56,15 @@ public class csSeisPaneManager {
     bundle.seisView.setPopupMenu( bundle.popupMenu );
     bundle.graphPanel = null;
     bundle.colorBarPanel = null;
+    bundle.addSeisPaneBundleMouseModeListener( bundle.popupMenu );
     myBundleList.add(bundle);
 
     bundle.addSeisPaneBundleScrollListener( new csISeisPaneBundleScrollListener() {
       @Override
       public void horzScrollChanged( csSeisPaneBundle bundle, int value ) {
         if( bundle.isSynced() ) {
-          if( myIsScrolling ) return;
-          myIsScrolling = true;
+          if( myIsSyncUpdating ) return;
+          myIsSyncUpdating = true;
           for( int i = 0; i < getNumBundles(); i++ ) {
             csSeisPaneBundle bundle2 = myBundleList.get(i);
             if( !bundle.equals(bundle2) && bundle2.isSynced() ) {
@@ -68,14 +72,14 @@ public class csSeisPaneManager {
               if( value <= bar.getMaximum() ) bar.setValue(value);
             }
           }
-          myIsScrolling = false;
+          myIsSyncUpdating = false;
         }
       }
       @Override
       public void vertScrollChanged( csSeisPaneBundle bundle, int value ) {
         if( bundle.isSynced() ) {
-          if( myIsScrolling ) return;
-          myIsScrolling = true;
+          if( myIsSyncUpdating ) return;
+          myIsSyncUpdating = true;
           for( int i = 0; i < getNumBundles(); i++ ) {
             csSeisPaneBundle bundle2 = myBundleList.get(i);
             if( !bundle.equals(bundle2) && bundle2.isSynced() ) {
@@ -83,10 +87,37 @@ public class csSeisPaneManager {
               if( value <= bar.getMaximum() ) bar.setValue(value);
             }
           }
-          myIsScrolling = false;
+          myIsSyncUpdating = false;
         }
       }
-    });    
+    });
+    bundle.addSeisPaneBundleListener( new csISeisPaneBundleListener() {
+      @Override
+      public void updateBundleDisplaySettings( csSeisPaneBundle bundle ) {
+        if( !myIsSyncDispSettings ) return;
+        if( bundle.isSynced() ) {
+          if( myIsSyncUpdating ) return;
+          myIsSyncUpdating = true;
+          csSeisDispSettings ds = bundle.seisView.getDispSettings();
+          for( int i = 0; i < getNumBundles(); i++ ) {
+            csSeisPaneBundle bundle2 = myBundleList.get(i);
+            if( !bundle.equals(bundle2) && bundle2.isSynced() ) {
+              bundle2.seisView.updateDispSettings(ds);
+            }
+          }
+          myIsSyncUpdating = false;
+        }
+      }
+      @Override
+      public void updateBundleDisplayScalar( csSeisPaneBundle bundle ) {
+        // Nothing to be done
+      }
+      @Override
+      public void updateBundleSampleInfo( csSeisPaneBundle bundle, csSeisBundleSampleInfo sampleInfo ) {
+                  // Nothing
+      }
+    });
+   
     return bundle;
   }
   public csAnnotationAttributes getAnnotationAttributes() {
@@ -213,7 +244,7 @@ public class csSeisPaneManager {
   }
   public void setMouseMode( int mouseMode ) {
     for( int i = 0; i < myBundleList.size(); i++ ) {
-      myBundleList.get(i).seisView.setMouseMode( mouseMode );
+      myBundleList.get(i).setMouseMode( mouseMode );
     }
   }
   public void setCrosshair( boolean setOn, boolean setSnap ) {

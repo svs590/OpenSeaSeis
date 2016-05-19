@@ -97,6 +97,9 @@ public abstract class csSeisViewRenderer implements csISeisViewListener {
     }
     myIsComputingDerivatives = false;
   }
+  public void traceBufferChanged( csISeismicTraceBuffer traceBuffer ) {
+    // Nothing to be done
+  }
   public void changedSettings( csSeisDispSettings ds ) {
     boolean resetSpline = ( myVA_yDerivative2Values == null &&
         (ds.isVIDisplay != mySettings.isVIDisplay || ds.wiggleType != mySettings.wiggleType) &&
