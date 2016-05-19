@@ -59,19 +59,18 @@ public class csASCIIReader implements csISeismicReader {
     readFile();
   }
   private void readFile() throws Exception {
-    int counter = 0;
     myNumTraces = 0;
-    String line = null;
-    ArrayList<float[]> sampleList = new ArrayList<float[]>();
+    String line;
+    ArrayList<float[]> sampleList = new ArrayList();
     try {
       while ((line = myReader.readLine()) != null) {
-        line.replaceAll("\t"," ");  // Replace all TABS
-        String[] tokens = line.trim().split(" ");
+        String[] tokens = line.replaceAll("\t"," ").trim().split(" ");
+        if( tokens.length == 0 ) {
+          continue; // Empty line
+        }
+        if( tokens[0].charAt(0) == '#' ) continue; // Comment line 
         if( myNumTraces == 0 ) {
           myNumTraces = tokens.length;
-        }
-        else if( tokens.length == 0 ) {
-          continue; // Empty line
         }
         else if( myNumTraces != tokens.length ) {
           throw new Exception("Syntax error in input file: Unequal number of columns/traces (" +
