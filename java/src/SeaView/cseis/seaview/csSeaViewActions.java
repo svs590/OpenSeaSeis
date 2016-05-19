@@ -65,7 +65,7 @@ public class csSeaViewActions {
     "Compute spectrum in selected window" ,
     "Rubberband zoom" ,
     "Pan mode" ,
-    "Picking mode" ,
+    "Horizon picking" ,
     "Fit pane content to screen size",
     "Hide/show panes",
     "Hide/show panes. Hidden panes exist.",
@@ -121,11 +121,11 @@ public class csSeaViewActions {
     "Compute spectrum",
     "Rubberband zoom",
     "Pan mode",
-    "Pick mode",
+    "Horizon picking...",
     "Fit to screen",
     "Hide/show panes",
     "Hide/show panes",
-    "Paint mode"
+    "Paint mode..."
   };
   public static final String [] ACTION_ICON = {
     "csArrowRight.png",

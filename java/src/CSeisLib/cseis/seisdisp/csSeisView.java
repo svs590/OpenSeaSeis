@@ -287,6 +287,8 @@ public class csSeisView extends JPanel {
 
     myIsFullRepaint  = true;
     myIsScrolling    = false;
+
+    fireEventChangedTraceBuffer( buffer );
   }
   /**
    * Set color bit type
@@ -1029,6 +1031,11 @@ public class csSeisView extends JPanel {
         mySeisViewListeners.remove(i);
         break;
       }
+    }
+  }
+  public void fireEventChangedTraceBuffer( csISeismicTraceBuffer traceBuffer ) {
+    for( int i = 0; i < mySeisViewListeners.size(); i++ ) {
+      mySeisViewListeners.get(i).traceBufferChanged(traceBuffer);
     }
   }
   public void fireEventChangedSettings() {

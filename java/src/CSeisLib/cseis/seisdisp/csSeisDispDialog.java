@@ -995,6 +995,9 @@ public class csSeisDispDialog extends JDialog implements csISeisViewListener {
     myTextZoomVertInch.setText( myFormat0000.format( convertZoomVertToInch(zoomVert) ) );
     myTextZoomHorzInch.setText( myFormat0000.format( convertZoomHorzToInch(zoomHorz) ) );
   }
+  public void traceBufferChanged( csISeismicTraceBuffer traceBuffer ) {
+    // Nothing to be done
+  }
   public void changedSettings( csSeisDispSettings ds ) {
     if( myIsUpdating ) return;
 

@@ -42,9 +42,20 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.image.BufferedImage;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Iterator;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.FileImageInputStream;
 import javax.swing.JDialog;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -129,8 +140,12 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
   private ArrayList<csScanHeaderInfo> myScanHdrInfoList;
   private csTraceHeaderScan myTraceHeaderScan;
   private ArrayList<csISeisPaneBundleListener> mySeisPaneBundleListeners;
+  private ArrayList<csISeisPaneBundleMouseModeListener> myMouseModeListeners;
   private ArrayList<csISeisPaneBundleScrollListener> mySeisPaneBundleScrollListeners;
   public final int id;
+  private JFileChooser myFileChooser;
+  private int myLocalMouseMode;
+  private int myGlobalMouseMode;
   
   csSeisPaneBundle( JFrame parentFrame, csSeisPaneManager manager, csSeisView seisViewIn,
           csTraceSelectionParam traceSelectionParam, csFilename filename, int fileFormat ) {
@@ -149,6 +164,8 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
     seisView.getEventHandler().addRubberBandListener(this);
     myScanHdrInfoList = new ArrayList<csScanHeaderInfo>();
     myHdrIndexWavenumber = -1;
+    myLocalMouseMode = csMouseModes.NO_MODE;
+    myGlobalMouseMode = csMouseModes.NO_MODE;
 
     myCurrentScanHdrInfoIndex = -1;
     myIsSynced = false;
@@ -165,6 +182,7 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
     myHdrIndexTimeSamp1_us = -1;
     
     mySeisPaneBundleListeners = new ArrayList<csISeisPaneBundleListener>(1);
+    myMouseModeListeners = new ArrayList<csISeisPaneBundleMouseModeListener>(1);
     mySeisPaneBundleScrollListeners = new ArrayList<csISeisPaneBundleScrollListener>(1);
     myGraphPanelListeners = new ArrayList<csIGraphPanelListener>(1);
     mySeismicTraceBuffer = null;
@@ -186,8 +204,13 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
     
     seisView.addSeisViewListener( new csISeisViewListener() {
       @Override
+      public void traceBufferChanged( csISeismicTraceBuffer traceBuffer ) {
+        if( myPickOverlay != null ) myPickOverlay.traceBufferChanged( traceBuffer );
+      }
+      @Override
       public void changedSettings( csSeisDispSettings settings ) {
         fireUpdateScalarEvent();
+        fireUpdateDispSettingsEvent();
         setColorBar( settings );
       }
       @Override
@@ -411,6 +434,12 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
   public void removeSeisPaneBundleListener( csISeisPaneBundleListener listener ) {
     mySeisPaneBundleListeners.remove( listener );
   } 
+  public void addSeisPaneBundleMouseModeListener( csISeisPaneBundleMouseModeListener listener ) {
+    myMouseModeListeners.add( listener );
+  } 
+  public void removeSeisPaneBundleMouseModeListener( csISeisPaneBundleMouseModeListener listener ) {
+    myMouseModeListeners.remove( listener );
+  } 
   public void addSeisPaneBundleScrollListener( csISeisPaneBundleScrollListener listener ) {
     mySeisPaneBundleScrollListeners.add( listener );
   } 
@@ -473,8 +502,9 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
 //    if( seisView.getMouseMode() == csMouseModes.PAINT_MODE ) {
 //      seisView.setMouseMode( csMouseModes.NO_MODE );
 //    }
-    popupMenu.setPaintMode( false );
-    setPaintMode( false );
+    setLocalMouseMode( csMouseModes.NO_MODE );
+//    popupMenu.setPaintMode( false );
+//    setPaintMode( false );
   }
   @Override
   public void clearPaintOverlay() {
@@ -488,8 +518,9 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
   }
   @Override
   public void closePickDialog() {
-    popupMenu.setPickMode( false );
-    setPickMode( false );
+    setLocalMouseMode( csMouseModes.NO_MODE );
+//    popupMenu.setPickMode( false );
+//    setPickMode( false );
   }
   @Override
   public void updatePicks() {
@@ -498,7 +529,7 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
   @Override
   public void setPicksFromHeader( csHeaderDef hdrDef ) {
     int headerIndex = getTraceHeaderIndex( hdrDef.name );
-    Float[] picks = new Float[seisView.getTraceBuffer().numTraces()];
+    float[] picks = new float[seisView.getTraceBuffer().numTraces()];
     csISeismicTraceBuffer traceBuffer = seisView.getTraceBuffer();
     for( int itrc = 0; itrc < picks.length; itrc++ ) {
       picks[itrc] = traceBuffer.headerValues(itrc)[headerIndex].floatValue();
@@ -506,34 +537,101 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
     myPickOverlay.setActivePicks( picks );
     seisView.repaint();
   }
-  public void setPaintMode( boolean doSet ) {
+  @Override
+  public void savePicks( csHorizon horizon, String name ) {
+    if( myFileChooser == null ) myFileChooser = new JFileChooser();
+    myFileChooser.setSelectedFile( new File(name + ".txt") );
+    int option = myFileChooser.showSaveDialog( myPickingDialog );
+    if( option == JFileChooser.APPROVE_OPTION ) {
+      File file = myFileChooser.getSelectedFile();
+      double sampleInt = myPickOverlay.getSampleInt();
+      try {
+        BufferedWriter writer = new BufferedWriter( new FileWriter(file) );
+        String text = "";
+        DecimalFormat floatFormat = new DecimalFormat("0.0");
+        horizon.startIteration();
+        while( horizon.hasNext() ) {
+          csHorizonPickArray array = (csHorizonPickArray)horizon.next();
+          float[] picks = array.picks;
+          for( int itrc = 0; itrc < picks.length; itrc++ ) {
+            float sampleIndex = picks[itrc];
+            if( sampleIndex != csPickOverlay.NO_VALUE ) {
+              text += " " + (itrc+array.trace1) + " " + floatFormat.format(sampleInt*sampleIndex) + "\n";
+            }
+          }
+        }
+        writer.write( text );
+        writer.close();
+        JOptionPane.showMessageDialog(myParentFrame, "Saved horizon picks to file\n" + file.getAbsolutePath(), "Info", JOptionPane.INFORMATION_MESSAGE);
+      }
+      catch (IOException ex) {
+        JOptionPane.showMessageDialog(myParentFrame, "Error occurred when writing time picks:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+      }
+    }
+  }
+  public void setMouseMode( int mouseMode ) {
+    myGlobalMouseMode = mouseMode;
+    if( myLocalMouseMode == csMouseModes.NO_MODE ) {
+      seisView.setMouseMode(myGlobalMouseMode);
+      fireUpdateMouseModeEvent( myGlobalMouseMode );
+    }
+    else {
+      // Nothing to be done. Local mouse mode overrides global mouse mode
+//      enableLocalMouseMode();
+//      seisView.setMouseMode(myLocalMouseMode);
+//      fireUpdateMouseModeEvent( myLocalMouseMode );
+    }
+  }
+  private void disableLocalMouseMode() {
+    if( myLocalMouseMode == csMouseModes.PAINT_MODE ) setPaintMode( false );
+    else if( myLocalMouseMode == csMouseModes.PICK_MODE ) setPickMode( false );
+  }
+  private void enableLocalMouseMode() {
+    if( myLocalMouseMode == csMouseModes.PAINT_MODE ) setPaintMode( true );
+    else if( myLocalMouseMode == csMouseModes.PICK_MODE ) setPickMode( true);
+  }
+  public void setLocalMouseMode( int newLocalMouseMode ) {
+    disableLocalMouseMode();
+    myLocalMouseMode = newLocalMouseMode;
+    enableLocalMouseMode();
+
+    if( myLocalMouseMode == csMouseModes.NO_MODE ) {
+      seisView.setMouseMode(myGlobalMouseMode);
+      fireUpdateMouseModeEvent( myGlobalMouseMode );
+    }
+    else {
+      seisView.setMouseMode(myLocalMouseMode);
+      fireUpdateMouseModeEvent( myLocalMouseMode );
+    }
+  }
+  private void setPaintMode( boolean doSet ) {
     if( doSet ) {
       if( myPaintOverlay == null ) myPaintOverlay = new csPaintOverlay( seisView );
       seisView.addOverlay( myPaintOverlay );
       myPaintOverlay.activate();
-      seisView.setMouseMode( csMouseModes.PAINT_MODE );
+//      setLocalMouseMode( csMouseModes.PAINT_MODE );
       if( myPaintDialog == null ) myPaintDialog = new csPaintDialog( myParentFrame, this );
       myPaintDialog.setVisible(true);
     }
     else {
       if( myPaintDialog != null ) myPaintDialog.setVisible(false);
       if( myPaintOverlay != null ) myPaintOverlay.deactivate();
-      seisView.setMouseMode( csMouseModes.NO_MODE );
+//      setLocalMouseMode( csMouseModes.NO_MODE );
     }
   }
-  public void setPickMode( boolean doSet ) {
+  private void setPickMode( boolean doSet ) {
     if( doSet ) {
       if( myPickOverlay == null ) myPickOverlay = new csPickOverlay( seisView );
       seisView.addOverlay( myPickOverlay );
       myPickOverlay.activate();
-      seisView.setMouseMode( csMouseModes.PICK_MODE );
+//      setLocalMouseMode( csMouseModes.PICK_MODE );
       if( myPickingDialog == null ) myPickingDialog = new csPickingDialog( myParentFrame, myPickOverlay, title, this, mySortedTraceHeaderDef );
       myPickingDialog.setVisible(true);
     }
     else {
       if( myPickingDialog != null ) myPickingDialog.setVisible(false);
       if( myPickOverlay != null ) myPickOverlay.deactivate();
-      seisView.setMouseMode( csMouseModes.NO_MODE );
+//      setLocalMouseMode( csMouseModes.NO_MODE );
     }
   }
   public float getSampleInt() {
@@ -543,6 +641,54 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
   public int getNumSamples() {
     if( mySeismicTraceBuffer == null ) return 0;
     return mySeismicTraceBuffer.numSamples();
+  }
+  public csISeismicReader readImage( String filename ) {
+    FileImageInputStream input = null;
+    try {
+      input = new FileImageInputStream( new File(filename) );
+    } 
+    catch (FileNotFoundException e1) {
+      e1.printStackTrace();
+      return null;
+    }
+    catch (IOException e2) {
+      e2.printStackTrace();
+      return null;
+    }
+    Iterator<ImageReader> iter = ImageIO.getImageReadersByFormatName("JPG");
+    if( iter.hasNext() ) {
+      ImageReader imageReader = iter.next();
+      imageReader.setInput( input );
+      BufferedImage image = null;
+      try {
+        image = imageReader.read(0);
+      } catch (IOException e) { e.printStackTrace(); System.exit(-1); }
+      int numTraces   = image.getWidth();
+      int numSamples  = image.getHeight();
+      float[][] imageDataArray = new float[numTraces][numSamples];
+      for( int itrc = 0; itrc < numTraces; itrc++ ) {
+        for( int isamp = 0; isamp < numSamples; isamp++ ) {
+          imageDataArray[itrc][isamp] = (float)image.getRGB( itrc, isamp );
+        }
+      }
+      int numHeaders  = 1;
+      float sampleInt = 1.0f;
+      myTraceHeaderDef = new csHeaderDef[numHeaders];
+      myTraceHeaderDef[0] = new csHeaderDef("trace","Trace number",csHeaderDef.TYPE_INT);
+      csVirtualSeismicReader reader = new csVirtualSeismicReader(
+            numSamples, myTraceHeaderDef.length, sampleInt, myTraceHeaderDef, myReader.verticalDomain() );
+      csTraceBuffer traceBuffer = reader.retrieveTraceBuffer();
+      for( int itrc = 0; itrc < numTraces; itrc++ ) {
+        csHeader[] headerValues = new csHeader[numHeaders];
+        headerValues[0] = new csHeader(itrc+1);
+        traceBuffer.addTrace( new csSeismicTrace( imageDataArray[itrc], headerValues, itrc+1 ) );
+      }
+      return reader;
+    }
+    else {
+//      JOptionPane.showM
+      return null;
+    }
   }
 //----------------------------------------------------------
   public csISeismicReader combineDataSets(
@@ -920,16 +1066,20 @@ public class csSeisPaneBundle extends JPanel implements csIGraphPanelListener,
       mySeisPaneBundleListeners.get(i).updateBundleDisplayScalar( this );
     }
   }
-  /*
-  public void fireUpdateScalarEvent( float newScalar, boolean isScalar ) {
+   public void fireUpdateDispSettingsEvent() {
     for( int i = 0; i < mySeisPaneBundleListeners.size(); i++ ) {
-      mySeisPaneBundleListeners.get(i).updateScalar( newScalar, isScalar );
+      mySeisPaneBundleListeners.get(i).updateBundleDisplaySettings( this );
     }
+
   }
-  */
   public void fireUpdateSampleEvent( csSeisBundleSampleInfo info ) {
     for( int i = 0; i < mySeisPaneBundleListeners.size(); i++ ) {
       mySeisPaneBundleListeners.get(i).updateBundleSampleInfo( this, info );
+    }
+  }
+  public void fireUpdateMouseModeEvent( int mouseMode ) {
+    for( int i = 0; i < myMouseModeListeners.size(); i++ ) {
+      myMouseModeListeners.get(i).updateBundleMouseMode( mouseMode );
     }
   }
 

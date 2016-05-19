@@ -8,6 +8,7 @@ import cseis.general.csITimerTaskDecrementListener;
 import cseis.general.csITimerTaskIncrementListener;
 import cseis.general.csTimerTaskDecrement;
 import cseis.general.csTimerTaskIncrement;
+import cseis.swing.csDockPaneActions;
 import cseis.swing.csDockPaneManager;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -26,6 +27,7 @@ import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JTextField;
+import javax.swing.JToggleButton;
 import javax.swing.JToolBar;
 
 /**
@@ -48,6 +50,7 @@ public class csSeaViewToolBarTop extends JToolBar {
   private JCheckBox myBoxLockScalar;
   private JComboBox myComboLayout;
   private JButton myButtonSelectPanes;
+  private JToggleButton myButtonSyncSettings;
   private ArrayList<csISeaViewToolBarListener> myListeners;
 
   private SeaView mySeaView;
@@ -68,8 +71,8 @@ public class csSeaViewToolBarTop extends JToolBar {
     myCurrentScalar = 1.0f;
     myTextScalar = new JTextField("" + myCurrentScalar);
     int preferredHeight = myTextScalar.getPreferredSize().height;
-    myTextScalar.setPreferredSize( new Dimension(200,preferredHeight) );
-    myTextScalar.setMaximumSize( new Dimension(200,preferredHeight) );
+    myTextScalar.setPreferredSize( new Dimension(150,preferredHeight) );
+    myTextScalar.setMaximumSize( new Dimension(150,preferredHeight) );
     
     myButtonIncScaling = new JButton( csSeaViewActions.getIcon(csSeaViewActions.IncreaseScalingAction) );
     myButtonDecScaling = new JButton( csSeaViewActions.getIcon(csSeaViewActions.DecreaseScalingAction) );
@@ -85,6 +88,8 @@ public class csSeaViewToolBarTop extends JToolBar {
     myButtonSnapShot        = new JButton( csSeaViewActions.getIcon(csSeaViewActions.SnapShotAction) );
     myButtonSnapShotPane    = new JButton( csSeaViewActions.getIcon(csSeaViewActions.SnapShotPaneAction) );
     myButtonSelectPanes     = new JButton( csSeaViewActions.getIcon(csSeaViewActions.SelectPanesAction) );
+    myButtonSyncSettings    = new JToggleButton( csDockPaneActions.getIcon(csDockPaneActions.SyncAction) );
+    myButtonSyncSettings.setSelected(false);
     
     myButtonIncScaling.setToolTipText( csSeaViewActions.ACTION_DESC[csSeaViewActions.IncreaseScalingAction] );
     myButtonDecScaling.setToolTipText( csSeaViewActions.ACTION_DESC[csSeaViewActions.DecreaseScalingAction] );
@@ -96,6 +101,7 @@ public class csSeaViewToolBarTop extends JToolBar {
     myButtonSnapShotPane.setToolTipText( csSeaViewActions.ACTION_DESC[csSeaViewActions.SnapShotPaneAction] );
     myButtonSelectPanes.setToolTipText( csSeaViewActions.ACTION_DESC[csSeaViewActions.SelectPanesAction] );
     myTextScalar.setToolTipText("Display scalar");
+    myButtonSyncSettings.setToolTipText("<html>Toggle to synchronize ALL settings across sync'ed displays,<br>including display settings and zom level</html>");
     
     Integer[] comboItems = new Integer[csDockPaneManager.getNumLayoutOptions()];
     for( int i = 0; i < csDockPaneManager.getNumLayoutOptions(); i++ ) {
@@ -121,6 +127,8 @@ public class csSeaViewToolBarTop extends JToolBar {
     add(myTextScalar);
     add(myButtonIncScaling);
     add(myButtonDecScaling);
+    addSeparator();
+    add(myButtonSyncSettings);
     addSeparator();
     add( myButtonBackwardSeismic );
     add( myButtonForwardSeismic );
@@ -178,6 +186,12 @@ public class csSeaViewToolBarTop extends JToolBar {
         }
         catch( NumberFormatException exc ) {
         }
+      }
+    });
+    myButtonSyncSettings.addActionListener( new ActionListener() {
+      @Override
+      public void actionPerformed( ActionEvent e ) {
+        mySeaView.updateSyncDispSettings( myButtonSyncSettings.isSelected() );
       }
     });
     myButtonDecScaling.addMouseListener( new MouseAdapter() {

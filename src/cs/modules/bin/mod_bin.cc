@@ -314,6 +314,8 @@ bool exec_mod_bin_(
 //*************************************************************************************************
 void params_mod_bin_( csParamDef* pdef ) {
   pdef->setModule( "BIN", "Perform binning" );
+  
+  pdef->addDoc("Note that binning is performed to bin centers, i.e. bin_x & bin_y after binning are bin centers.");
 
   pdef->addParam( "method", "Binning method", NUM_VALUES_FIXED,
                   "If new grid is defined (option 'define'), all parameters named 'grid_...' must be specified. For the other options, any or all grid parameter may be redefined. Grid parameters that are not redefined are taken from the existing input super header" );

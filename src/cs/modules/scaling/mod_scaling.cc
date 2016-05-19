@@ -26,6 +26,8 @@ namespace mod_scaling {
     bool isFile;
     bool isScalar;
     float* bufferScalar;
+    int windowStartSample;
+    int windowEndSample;
   };
 }
 using mod_scaling::VariableStruct;
@@ -54,14 +56,16 @@ void init_mod_scaling_( csParamManager* param, csInitPhaseEnv* env, csLogWriter*
   vars->bufferScalar = NULL;
   vars->isFile = false;
   vars->isScalar = false;
+  vars->windowStartSample = 0; // By default, apply mute to full trace length
+  vars->windowEndSample   = shdr->numSamples-1; // By default, apply mute to full trace length
 
 //---------------------------------------------
 // Retrieve sampIndex and scalar
 //
   csVector<std::string> valueList;
 
+  std::string text;
   if( param->exists( "filename" ) ) {
-    std::string text;
     param->getString("filename",&text);
     csVector<float> timeList;
     csVector<float> scalarList;
@@ -174,6 +178,26 @@ void init_mod_scaling_( csParamManager* param, csInitPhaseEnv* env, csLogWriter*
   if( param->exists("table") ) {
     param->getString( "table", &tableName );
   }
+
+  if( param->exists("window") ) {
+    param->getString("window",&text);
+    if( !text.compare("no") ) {
+      // Nothing
+    }
+    else if( !text.compare("yes") ) {
+      float startTime;
+      float endTime;
+      param->getFloat( "window", &startTime, 1 );
+      param->getFloat( "window", &endTime, 2 );
+      vars->windowStartSample = std::max( 0, (int)round( startTime / (float)shdr->sampleInt ) );
+      vars->windowEndSample   = std::min( shdr->numSamples-1, (int)round( endTime / (float)shdr->sampleInt ) );
+      if( vars->windowStartSample >= shdr->numSamples ) log->error("Window start time (=%f) exceeds trace length (=%f)", startTime, shdr->numSamples );
+      if( vars->windowEndSample <= vars->windowStartSample ) log->error("Window start time (=%f) exceeds or equals window end time (=%f)", startTime, endTime );
+    }
+    else {
+      log->error("Unknown mode option: '%s'", text.c_str());
+    }
+  }
 //----------------------------------------------
   if( edef->isDebug() ) {
     for( int i = 0; i < vars->numTimes; i++ ) {
@@ -218,30 +242,39 @@ bool exec_mod_scaling_(
   float* sampIndex = vars->sampIndex;
   float* samples = trace->getTraceSamples();
 
+  int firstSampleToProcess = vars->windowStartSample;
+  int lastSampleToProcess  = vars->windowEndSample;
+  int numSamplesToProcess  = vars->windowEndSample - vars->windowStartSample + 1;
+
+
   if( vars->hdrId >= 0 ) {
     double scalarValue = trace->getTraceHeader()->doubleValue(vars->hdrId);
-    for( int isamp = 0; isamp < shdr->numSamples; isamp++ ) {
+    for( int isamp = firstSampleToProcess; isamp < numSamplesToProcess; isamp++ ) {
       samples[isamp] *= scalarValue;
     }
   }
+
   else if( vars->isScalar ) {
     float sc;
     if( vars->numTimes == 1 ) {
       sc = scalar[0];
-      for( int isamp = 0; isamp < shdr->numSamples; isamp++ ) {
+      for( int isamp = firstSampleToProcess; isamp < numSamplesToProcess; isamp++ ) {
         samples[isamp] *= sc;
       }
     }
     else {
       int sampIndexFirst = (int)( sampIndex[0] ) + 1;
       int sampIndexLast  = (int)( sampIndex[vars->numTimes-1] + 0.01 );
-      
+
+      sampIndexFirst = std::min( std::max( sampIndexFirst, firstSampleToProcess ), lastSampleToProcess );
+      sampIndexLast  = std::max( std::min( sampIndexLast, lastSampleToProcess ), lastSampleToProcess );
+
       sc = scalar[0];
-      for( int isamp = 0; isamp < sampIndexFirst; isamp++ ) {
+      for( int isamp = firstSampleToProcess; isamp < sampIndexFirst; isamp++ ) {
         samples[isamp] *= sc;
       }
       sc = scalar[vars->numTimes-1];
-      for( int isamp = sampIndexLast; isamp < shdr->numSamples; isamp++ ) {
+      for( int isamp = sampIndexLast; isamp <= lastSampleToProcess; isamp++ ) {
         samples[isamp] *= sc;
       }
       
@@ -295,6 +328,13 @@ void params_mod_scaling_( csParamDef* pdef ) {
 
   pdef->addParam( "header", "Trace header name containing scalar value", NUM_VALUES_FIXED);
   pdef->addValue( "", VALTYPE_STRING, "Trace header name" );
+
+  pdef->addParam( "window", "Restrict application of scalar to certain window?", NUM_VALUES_FIXED, "If specified, scaling will not be applied outside of the specified window" );
+  pdef->addValue( "no", VALTYPE_OPTION);
+  pdef->addOption( "no", "Do not restrict scaling to a window: Apply scaling over full trace length" );
+  pdef->addOption( "yes", "Apply scaling only inside  specified window" );
+  pdef->addValue( "", VALTYPE_NUMBER, "Start time" );
+  pdef->addValue( "", VALTYPE_NUMBER, "End time" );
 }
 
 extern "C" void _params_mod_scaling_( csParamDef* pdef ) {

@@ -16,16 +16,18 @@ import cseis.seis.csTraceBuffer;
  * @author 2013 Felipe Punto
  */
 public class csVirtualSeismicReader implements csISeismicReader {
-  private csTraceBuffer myTraceBuffer;
-  private csHeaderDef[] myTraceHeaderDef;
-  private float mySampleInt;
-  private int myCurrentTraceIndex;
-  private int myPeekHeaderIndex;
-  private int myVerticalDomain;
+  protected csTraceBuffer myTraceBuffer;
+  protected csHeaderDef[] myTraceHeaderDef;
+  protected float mySampleInt;
+  protected int myCurrentTraceIndex;
+  protected int myPeekHeaderIndex;
+  protected int myVerticalDomain;
   
-  private csISelectionNotifier mySelectionNotifier;
-  private int mySelectionHdrIndex;
+  protected csISelectionNotifier mySelectionNotifier;
+  protected int mySelectionHdrIndex;
   
+  public csVirtualSeismicReader() {   
+  }
   /**
    * 
    * @param numSamples  Number of samples per trace

@@ -145,6 +145,9 @@ public class csSeisViewEventHandler implements MouseMotionListener, MouseListene
     else if( myView.getMouseMode() == csMouseModes.PAINT_MODE ) {
       myView.setCursor( csMouseModes.PAINT_CURSOR );
     }
+    else if( myView.getMouseMode() == csMouseModes.VELPICK_MODE ) {
+      myView.setCursor( csMouseModes.VELPICK_CURSOR );
+    }
     else { //( myView.getMouseMode() == csMouseModes.NO_MODE ) {
       myView.setCursor( Cursor.getDefaultCursor() );
     }
