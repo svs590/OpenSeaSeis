@@ -8,16 +8,15 @@ import java.awt.*;
 import javax.swing.*;
 import cseis.general.csStandard;
 import cseis.seis.csHeaderDef;
-import cseis.seisdisp.csPickAttr;
+import cseis.seisdisp.csHorizonAttr;
 import cseis.seisdisp.csPickOverlay;
 import cseis.swing.csColorButton;
+import cseis.swing.csColorChangeListener;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -25,10 +24,11 @@ import java.util.ArrayList;
 /**
  * Dialog window providing picking functionality in seismic view.<br>
  * <br>
- * Provides only rudimentary functionality as of yet.
  * @author 2011 Bjorn Olofsson
  */
 public class csPickingDialog extends JDialog {
+  private static int ITEM_COUNTER = 0;
+  
   private final static Color[] COLORS = {
     Color.blue,
     Color.yellow,
@@ -38,7 +38,6 @@ public class csPickingDialog extends JDialog {
     Color.orange,
     Color.white
   };
-  private static int ITEM_COUNTER = 1;
   private JFileChooser myFileChooser;
   private final ArrayList<PickItem> myPickItemList;
   private final csPickOverlay myPickOverlay;
@@ -59,7 +58,7 @@ public class csPickingDialog extends JDialog {
   private final csHeaderDef[] myHeaderDef;
   
   public csPickingDialog( JFrame frame, csPickOverlay pickOverlay, String name, csIPickDialogListener listener, csHeaderDef[] headerDef ) {
-    super(frame,"Picking dialog: " + name );
+    super(frame,"Horizon picking for: " + name );
     myPickOverlay = pickOverlay;
     myFileChooser = null;
     myListener = listener;
@@ -244,7 +243,7 @@ public class csPickingDialog extends JDialog {
     int colorIndex = numItems % COLORS.length;
     PickItem pickItem = new PickItem( COLORS[colorIndex] );
     myPickItemList.add( pickItem );
-    csPickAttr attr = new csPickAttr( pickItem.id, pickItem.textName.getText(), pickItem.colorButton.getColor(), pickItem.comboType.getSelectedIndex() );
+    csHorizonAttr attr = new csHorizonAttr( pickItem.getID(), pickItem.textName.getText(), pickItem.colorButton.getColor(), pickItem.comboType.getSelectedIndex() );
     myPickOverlay.addHorizon( attr );
     setActiveIndex( numItems );
     updateButtons();
@@ -265,8 +264,8 @@ public class csPickingDialog extends JDialog {
   private void updatePickAttr( PickItem pickItem ) {
     int index = getPickItemIndex( pickItem );
     if( index < 0 ) return;
-    csPickAttr attr = new csPickAttr( pickItem.id, pickItem.textName.getText(), pickItem.colorButton.getColor(), pickItem.comboType.getSelectedIndex() );
-    myPickOverlay.update( attr );
+    csHorizonAttr attr = new csHorizonAttr( pickItem.getID(), pickItem.textName.getText(), pickItem.colorButton.getColor(), pickItem.comboType.getSelectedIndex() );
+    myPickOverlay.updateDisplayAttr( attr );
   }
   private int getPickItemIndex( PickItem pickItem ) {
     for( int i = 0; i < myPickItemList.size(); i++ ) {
@@ -284,38 +283,20 @@ public class csPickingDialog extends JDialog {
     myActiveIndex = index;
     if( myActiveIndex >= 0 ) {
       myPickItemList.get(myActiveIndex).setActive(true);
-      myPickOverlay.updateActive( myPickItemList.get(myActiveIndex).id );
+      myPickOverlay.setActiveObject( myPickItemList.get(myActiveIndex).id );
     }
   }
   private void save() {
-    Float[] picks = myPickOverlay.getPicks( myPickItemList.get(myActiveIndex).id );
-    if( picks == null ) return;
-    if( myFileChooser == null ) myFileChooser = new JFileChooser();
-    int option = myFileChooser.showSaveDialog( this );
-    if( option == JFileChooser.APPROVE_OPTION ) {
-      File file = myFileChooser.getSelectedFile();
-      double sampleInt = myPickOverlay.getSampleInt();
-      try {
-        BufferedWriter writer = new BufferedWriter( new FileWriter(file) );
-        String text = "";
-        for( int itrc = 0; itrc < picks.length; itrc++ ) {
-          float sampleIndex = picks[itrc];
-          if( sampleIndex != csPickOverlay.NO_VALUE ) text += " " + itrc + " " + floatFormat.format(sampleInt*sampleIndex) + "\n";
-        }
-        writer.write( text );
-        writer.close();
-      }
-      catch (IOException ex) {
-        ;
-      }
-      
-    }
+//    HeaderSelectDialog dialog = new HeaderSelectDialog( this, "Select header to save with picks:", false, new IHeaderSelectListener() {
+//      @Override
+//      public void selectHeader( csHeaderDef hdef ) {
+//        float[] picks = myPickOverlay.getPicks( myPickItemList.get(myActiveIndex).id );
+        myListener.savePicks( myPickOverlay.getHorizon( myPickItemList.get(myActiveIndex).id ), myPickItemList.get(myActiveIndex).textName.getText() );
+//      }
+//    });
+//    dialog.setVisible(true);
   }
   private void load() {
-    Float[] picks = new Float[myPickOverlay.getNumTraces()];
-    for( int i = 0; i < picks.length; i++ ) {
-      picks[i] = csPickOverlay.NO_VALUE;
-    }
     if( myFileChooser == null ) myFileChooser = new JFileChooser();
     int option = myFileChooser.showOpenDialog( this );
     if( option == JFileChooser.APPROVE_OPTION ) {
@@ -324,26 +305,48 @@ public class csPickingDialog extends JDialog {
       try {
         BufferedReader reader = new BufferedReader( new FileReader(file) );
         String line;
+        ArrayList<Integer> traceNumList = new ArrayList();
+        ArrayList<Float> sampleIndexList = new ArrayList();
         while( (line = reader.readLine()) != null ) {
           String[] tokens = line.trim().split(" ");
           if( tokens.length >= 2 ) {
-            int traceIndex = Integer.parseInt( tokens[0] );
+            int traceNumber = Integer.parseInt( tokens[0] );
             double time = Double.parseDouble( tokens[1] );
-            if( traceIndex < picks.length ) picks[traceIndex] = (float)(time/sampleInt);
+            traceNumList.add( traceNumber );
+            sampleIndexList.add( (float)(time/sampleInt) );
           }
         }
         reader.close();
-        myPickOverlay.setActivePicks(picks);
-        myListener.updatePicks();
+        String name = file.getAbsolutePath();
+        int separatorIndex = name.lastIndexOf( java.io.File.separatorChar );
+        if( separatorIndex < 0 ) separatorIndex = 0;
+        int pointIndex = name.lastIndexOf('.');
+        if( pointIndex >= 0 ) name = name.substring( separatorIndex+1, pointIndex );
+        if( myPickOverlay.loadActivePicks( traceNumList, sampleIndexList, name ) ) {
+          if( myActiveIndex >= 0 ) myPickItemList.get(myActiveIndex).textName.setText(name);
+          myListener.updatePicks();
+        }
+        else {
+          JOptionPane.showMessageDialog(this, "Unknown error (bug?) occurred when trying to set time picks", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+        JOptionPane.showMessageDialog(this,
+          "Loaded horizon picks from file\n'" + file.getAbsolutePath() +
+            "'\nMin/max trace in file: " + traceNumList.get(0) + "/" + traceNumList.get(traceNumList.size()-1),
+          "Info", JOptionPane.INFORMATION_MESSAGE);
       }
       catch (IOException ex) {
-        ;
+        JOptionPane.showMessageDialog(this, "Error occurred when loading time picks:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
       }
       
     }
   }
   private void setFromHeader() {
-    HeaderSelectDialog dialog = new HeaderSelectDialog(this);
+    HeaderSelectDialog dialog = new HeaderSelectDialog( this, "Set picks from header:", true, new IHeaderSelectListener() {
+      @Override
+      public void selectHeader(csHeaderDef hdef) {
+        myListener.setPicksFromHeader( hdef );
+      }
+    });
     dialog.setVisible(true);
   }
   private void updateButtons() {
@@ -353,7 +356,7 @@ public class csPickingDialog extends JDialog {
   }
   //-----------------------------------------------------------------------------
   //
-  class PickItem {
+  public class PickItem {
     private final int   id;
     final JTextField    textName;
     final JRadioButton  checkActive;
@@ -381,14 +384,12 @@ public class csPickingDialog extends JDialog {
         @Override
         public void actionPerformed(ActionEvent e) {
           updatePickAttr( PickItem.this );
-//          setPickMode( PickItem.this, comboType.getSelectedIndex() );
         }
       });
-      colorButton.addActionListener( new ActionListener() {
+      colorButton.addColorChangeListener( new csColorChangeListener() {
         @Override
-        public void actionPerformed(ActionEvent e) {
+        public void colorChanged(Object obj, Color color) {
           updatePickAttr( PickItem.this );
-//          setPickColor( PickItem.this, colorButton.getColor() );
         }
       });
     }
@@ -398,14 +399,25 @@ public class csPickingDialog extends JDialog {
     void setActive( boolean doSet ) {
       checkActive.setSelected( doSet );
     }
+    int getID() {
+      return id;
+    }
   }
   //-------------------------------------------------------------
+  interface IHeaderSelectListener {
+    public void selectHeader( csHeaderDef hdef );
+  }
   class HeaderSelectDialog extends JDialog {
     JComboBox headerBox;
     JButton buttonApply;
     JButton buttonClose;
-    HeaderSelectDialog( JDialog parent ) {
+    IHeaderSelectListener myHeaderSelectionListener;
+    boolean myIsApplyButton;
+
+    HeaderSelectDialog( JDialog parent, String title, boolean isApplyButton, IHeaderSelectListener listener ) {
       super( parent, "Header selection", true );
+      myIsApplyButton = isApplyButton;
+      myHeaderSelectionListener = listener;
       headerBox = new JComboBox( myHeaderDef );
       buttonApply = new JButton("Apply");
       buttonClose = new JButton("Close");
@@ -429,9 +441,11 @@ public class csPickingDialog extends JDialog {
       panelButtons.add( Box.createHorizontalGlue(), new GridBagConstraints(
           xp++, 0, 1, 1, 0.9, 0.0, GridBagConstraints.CENTER,
           GridBagConstraints.HORIZONTAL, new Insets( 0, 0, 0, 0 ), 0, 0 ) );
-      panelButtons.add( buttonApply, new GridBagConstraints(
-          xp++, 0, 1, 1, 0.0, 0.0, GridBagConstraints.SOUTHWEST,
-          GridBagConstraints.HORIZONTAL, new Insets( 11, 0, 0, 0 ), 0, 0 ) );
+      if( myIsApplyButton ) {
+        panelButtons.add( buttonApply, new GridBagConstraints(
+            xp++, 0, 1, 1, 0.0, 0.0, GridBagConstraints.SOUTHWEST,
+            GridBagConstraints.HORIZONTAL, new Insets( 11, 0, 0, 0 ), 0, 0 ) );
+      }
       panelButtons.add( buttonClose, new GridBagConstraints(
           xp++, 0, 1, 1, 0.0, 0.0, GridBagConstraints.SOUTHWEST,
           GridBagConstraints.HORIZONTAL, new Insets( 11, 0, 0, 0 ), 0, 0 ) );
@@ -441,6 +455,7 @@ public class csPickingDialog extends JDialog {
 
       JPanel panelAll = new JPanel(new BorderLayout());
       panelAll.setBorder( csStandard.DIALOG_BORDER );
+      panelAll.add( new JLabel(title,JLabel.CENTER),BorderLayout.NORTH);
       panelAll.add(panel1,BorderLayout.CENTER);
       panelAll.add(panelButtons,BorderLayout.SOUTH);
     
@@ -451,16 +466,22 @@ public class csPickingDialog extends JDialog {
       buttonApply.addActionListener(new ActionListener() {
         @Override
         public void actionPerformed( ActionEvent e ) {
-          int index =headerBox.getSelectedIndex();
+          int index = headerBox.getSelectedIndex();
           if( index < 0 ) return;
           csHeaderDef hdrDef = myHeaderDef[ index ];
-          myListener.setPicksFromHeader( hdrDef );
+          myHeaderSelectionListener.selectHeader(hdrDef);
         }
       });
       buttonClose.addActionListener(new ActionListener() {
         @Override
         public void actionPerformed( ActionEvent e ) {
           dispose();
+          if( !myIsApplyButton ) {
+            int index = headerBox.getSelectedIndex();
+            csHeaderDef hdrDef = null;
+            if( index >= 0 ) hdrDef = myHeaderDef[ index ];
+            myHeaderSelectionListener.selectHeader(hdrDef);
+          }
         }
       });
     }
