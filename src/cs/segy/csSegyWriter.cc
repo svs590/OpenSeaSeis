@@ -197,7 +197,7 @@ void csSegyWriter::freeCharBinHdr() {
 void csSegyWriter::writeNextTrace( byte_t const* theBuffer, int nSamples ) {
   writeNextTrace( theBuffer, myTrcHdr, nSamples );
 }
-void csSegyWriter::writeNextTrace( byte_t const* theBuffer, csSegyTraceHeader const* trcHdr, int nSamples ) {
+void csSegyWriter::writeNextTrace( byte_t const* theBuffer, csSegyTraceHeader * const trcHdr, int nSamples ) {
   if( !myHasBeenInitialized ) {
     throw( csException("Accessing method to read first trace before initializing SEGY Writer. This is a program bug in the calling method") );
   }

@@ -15,7 +15,7 @@ rem
 
 set SRCDIR=.\src
 set JAVADIR=.\java
-set CSEISDIR=.\..
+set CSEISDIR=.\
 
 set WIN_LIBDIR=win\win64
 
@@ -53,7 +53,7 @@ echo "Start building CSEIS..."
 if exist %BINDIR%\seaseis.exe ( del %BINDIR%\seaseis.exe )
 %MAKE% -f %SRCDIR%\make\win\Makefile_build
 %MAKE% -f %SRCDIR%\make\win\Makefile_all
-%MAKE% -f %SRCDIR%\make\win\Makefile_seaview
+%MAKE% -f %SRCDIR%\make\win\Makefile_capi
 
 copy %JAVADIR%\jar\CSeisLib.jar %BINDIR%
 copy %JAVADIR%\jar\SeaView.jar %BINDIR%

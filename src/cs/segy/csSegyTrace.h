@@ -6,7 +6,7 @@
 
 #include <string>
 #include "csSegyHeader.h"
-#include "csByteHeader.h"
+//#include "csByteHeader.h"
 
 namespace cseis_geolib {
   template<typename T> class csVector;
@@ -22,14 +22,14 @@ public:
   csSegyTrace( int numSamples ) {
     myNumSamples = numSamples;
     myDataBuffer = new float[myNumSamples];
-    myHdr = new csByteHeader( csSegyHeader::SIZE_TRCHDR );
+    //myHdr = new csByteHeader( csSegyHeader::SIZE_TRCHDR );
   }
   float const* getSamples() {
     return myDataBuffer;
   }
-  csByteHeader const* getHeader() const {
-    return myHdr;
-  }
+  //csByteHeader const* getHeader() const {
+  //  return myHdr;
+  //}
   int getInt( int bytePos, int byteSize );
   float getFloat( int bytePos, int byteSize );
   double getDouble( int bytePos, int byteSize );
@@ -38,7 +38,7 @@ public:
 private:
   int myNumSamples;
   float* myDataBuffer;
-  csByteHeader* myHdr;
+  //csByteHeader* myHdr;
 };
 
 } // end namespace

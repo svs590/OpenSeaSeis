@@ -56,7 +56,7 @@ public:
 
 //  void writeNextTrace( byte_t const* buffer, int nSamples = 0 );
   void writeNextTrace( byte_t const* buffer, int nSamples );
-  void writeNextTrace( byte_t const* buffer, csSegyTraceHeader const* trcHdr, int nSamples );
+  void writeNextTrace( byte_t const* buffer, csSegyTraceHeader * const trcHdr, int nSamples );
 
   void setIntValue( int hdrIndex, int value );
   void setFloatValue( int hdrIndex, float value );

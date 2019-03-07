@@ -7,6 +7,8 @@
 #include "geolib_defines.h"
 #include "csHeaderInfo.h"
 
+#include <vector>
+
 namespace cseis_geolib {
 
 template<typename T> class csVector;
@@ -62,7 +64,7 @@ public:
   friend class csSegyWriter;  
   
   void readHeaderValues( byte_t const* buffer, bool doSwapEndian, bool isAutoScaleHeaders );
-  void writeHeaderValues( byte_t* buffer, bool doSwapEndian, bool isAutoScaleHeaders ) const;
+  void writeHeaderValues( byte_t* buffer, bool doSwapEndian, bool isAutoScaleHeaders );
 
  protected:
   cseis_geolib::csFlexHeader* getHandleHdrValues();
@@ -70,7 +72,7 @@ public:
 private:
   void init();
   csSegyTraceHeader();
-  cseis_geolib::csFlexHeader* myHdrValues;
+  std::vector<cseis_geolib::csFlexHeader> myHdrValues;
   csSegyHdrMap const* myHdrMapPtr;
 };
 

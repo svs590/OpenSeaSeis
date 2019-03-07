@@ -200,6 +200,18 @@ bool csSegyHdrMap::getHdrIndex( std::string const& name, int* hdrIndex, int byte
 }
 
 //-----------------------------------------------------------------------------------------
+void csSegyHdrMap::unlockUserDefenition() {
+	myIsInitScalars = false;
+	myReplaceExistingHeader = true;
+}
+
+//-----------------------------------------------------------------------------------------
+void csSegyHdrMap::lockUserDefenition() {
+	myIsInitScalars = true;
+	myReplaceExistingHeader = false;
+}
+
+//-----------------------------------------------------------------------------------------
 bool csSegyHdrMap::addHeader( int byteLoc, int byteSize, type_t inType, csHeaderInfo const& hdr ) {
   return addHeader( hdr.name, byteLoc, byteSize, inType, hdr.type, hdr.description );
 }
@@ -317,7 +329,7 @@ int csSegyHdrMap::getStatHeaderIndex( int index ) const {
 //--------------------------------------------------------------------------------
 //
 //
-void csSegyHdrMap::applyCoordinateScalar( cseis_geolib::csFlexHeader* hdrValues ) const {
+void csSegyHdrMap::applyCoordinateScalar( std::vector<cseis_geolib::csFlexHeader> &hdrValues ) const {
   if( myHdrID_scalar_elev < 0 || myHdrID_scalar_coord < 0 ) throw( csException("csSegyHdrMap::applyCoordinateScalar: Inconsistent call to method. This method is not implemented in the best possible way. Refactoring required. Program bug.") );
   // 1) Convert scalar values into signed shorts
   //  hdrValues[myHdrID_scalar_elev].setIntValue( (int)(short)hdrValues[myHdrID_scalar_elev].intValue() );
@@ -357,7 +369,7 @@ void csSegyHdrMap::applyCoordinateScalar( cseis_geolib::csFlexHeader* hdrValues 
   }
 }
 
-void csSegyHdrMap::applyCoordinateScalarWriting( cseis_geolib::csFlexHeader* hdrValues ) const {
+void csSegyHdrMap::applyCoordinateScalarWriting( std::vector<cseis_geolib::csFlexHeader> &hdrValues ) const {
   if( myHdrID_scalar_elev < 0 || myHdrID_scalar_coord < 0 ) throw( csException("csSegyHdrMap::applyCoordinateScalar: Inconsistent call to method. This method is not implemented in the best possible way. Refactoring required. Program bug.") );
   double scalarElev  = (double)hdrValues[myHdrID_scalar_elev].intValue();
   double scalarCoord = (double)hdrValues[myHdrID_scalar_coord].intValue();

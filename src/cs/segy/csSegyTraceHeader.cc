@@ -17,7 +17,7 @@ using namespace cseis_geolib;
 
 csSegyTraceHeader::csSegyTraceHeader( csSegyHdrMap const* segyHdrMap ) {
   myHdrMapPtr = segyHdrMap;
-  myHdrValues = new csFlexHeader[myHdrMapPtr->numHeaders()];
+  myHdrValues.resize(myHdrMapPtr->numHeaders());
   // Initialize
   for( int ihdr = 0; ihdr < myHdrMapPtr->numHeaders(); ihdr++ ) {
     myHdrValues[ihdr] = 0;
@@ -25,13 +25,15 @@ csSegyTraceHeader::csSegyTraceHeader( csSegyHdrMap const* segyHdrMap ) {
 }
 
 csSegyTraceHeader::~csSegyTraceHeader() {
-  if( myHdrValues != NULL ) {
-    delete [] myHdrValues;
-    myHdrValues = NULL;
+  if( !myHdrValues.empty() ) {
+    myHdrValues.clear();
   }
 }
 
 void csSegyTraceHeader::readHeaderValues( byte_t const* buffer, bool doSwapEndian, bool autoScaleHeaders ) {
+  if (myHdrMapPtr->numHeaders() > (int)myHdrValues.size())
+    myHdrValues.resize(myHdrMapPtr->numHeaders());
+	
   int nHeaders = numHeaders();
   for( int ihdr = 0; ihdr < nHeaders; ihdr++ ) {
     csSegyHeaderInfo const* info = myHdrMapPtr->header(ihdr);
@@ -81,6 +83,7 @@ void csSegyTraceHeader::readHeaderValues( byte_t const* buffer, bool doSwapEndia
       memcpy( &f3, c3, 4 );
       fprintf(stdout,"Header '%s': %f %f %f\n", info->name.c_str(), f1, f2, f3);
 */
+
       if( doSwapEndian ) {
         myHdrValues[ihdr].setFloatValue( byte2Float_SWAP( &buffer[byteLoc] ) );
       }
@@ -178,7 +181,7 @@ void csSegyTraceHeader::dump( byte_t const* buffer, bool doSwapEndian, FILE* fou
 }
 
 
-void csSegyTraceHeader::writeHeaderValues( byte_t* buffer, bool doSwapEndian, bool autoScaleHeaders ) const {
+void csSegyTraceHeader::writeHeaderValues( byte_t* buffer, bool doSwapEndian, bool autoScaleHeaders ) {
   int nHeaders = numHeaders();
 
   // Special treatment for headers that need to be scaled:
@@ -278,7 +281,7 @@ std::string csSegyTraceHeader::stringValue( int hdrIndex ) const {
 }
 
 cseis_geolib::csFlexHeader* csSegyTraceHeader::getHandleHdrValues() {
-  return myHdrValues;
+  return myHdrValues.data();
 }
 
 

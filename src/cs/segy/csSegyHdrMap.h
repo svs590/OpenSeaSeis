@@ -6,6 +6,8 @@
 
 #include <string>
 #include <cstdio>
+#include <vector>
+
 #include "geolib_defines.h"
 
 namespace cseis_geolib {
@@ -141,10 +143,13 @@ public:
   * for example by manually setting non-standard headers
   */
   void initScalars();
+
+  void lockUserDefenition();
+  void unlockUserDefenition();
   
-  void applyCoordinateScalar( cseis_geolib::csFlexHeader* hdrValues ) const;
+  void applyCoordinateScalar(std::vector<cseis_geolib::csFlexHeader> &hdrValues ) const;
 //  void applyCoordinateScalar( cseis_geolib::csFlexHeader* hdrValues, int scalarCoord, int scalarElev ) const;
-  void applyCoordinateScalarWriting( cseis_geolib::csFlexHeader* hdrValues ) const;
+  void applyCoordinateScalarWriting(std::vector<cseis_geolib::csFlexHeader> &hdrValues ) const;
 
   void dump( FILE* stream ) const;
 

@@ -250,7 +250,7 @@ private:
 
 public:
   void resetTrcHdrMap( csSegyHdrMap* map );
-  csSegyHdrMap const* getTrcHdrMap() const { return myTrcHdrMap; }
+  csSegyHdrMap *getTrcHdrMap() { return myTrcHdrMap; }
 //-----------------------------------------------------------------------------------------
 // Private access methods
 //
