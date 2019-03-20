@@ -140,6 +140,7 @@ public:
   */
   bool getNextTrace( byte_t* sampleBufferOut, int nSamples );
   bool getNextTrace( byte_t* sampleBufferOut );
+  bool getNextTraceHeader();
   float const* getNextTracePointer( int nSamples );
   float const* getNextTracePointer();
 
@@ -182,6 +183,7 @@ private:
 
   /// Big buffer holding all pre-read traces
   char* myBigBuffer;
+  char myHdrBuffer[csSegyHeader::SIZE_TRCHDR];
   /// Capacity in number of traces of big buffer = Maximum number of traces that can be buffered at once
   int myBufferCapacityNumTraces;
   /// Total number of traces that are currently stored in the buffer

@@ -228,6 +228,22 @@ CS_CAPI const float *cseis_csSegyReader_1getNextTrace
 	}
 }
 
+CS_CAPI bool cseis_csSegyReader_getNextTraceHeader
+(void *obj)
+{
+	csSegyReader* ptr = reinterpret_cast<csSegyReader*>(obj);
+
+	try {
+		return ptr->getNextTraceHeader();
+	}
+	catch (csException& e) {
+		printf("Error when reading from SEGY file: %s\n", e.getMessage());
+		fflush(stderr);
+
+		return false;
+	}
+}
+
 CS_CAPI const void * const cseis_csSegyReader_getTrcHdrMap(void *obj) {
 	csSegyReader* ths = reinterpret_cast<csSegyReader*>(obj);
 	return static_cast<const void*>(ths->getTrcHdrMap());

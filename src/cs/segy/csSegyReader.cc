@@ -461,6 +461,61 @@ bool csSegyReader::getNextTrace( byte_t* sampleBufferOut ) {
   return getNextTrace( sampleBufferOut, myNumSamples );
 }
 
+bool csSegyReader::getNextTraceHeader() {
+	if (!myHasBeenInitialized) {
+		initialize();
+	}
+	if (myPeekIsInProgress) revertFromPeekPosition();
+
+	if (myIOSelection) {
+		int traceIndex = myIOSelection->getNextTraceIndex();
+		if (traceIndex < 0) return false;
+		bool success = moveToTrace(traceIndex);
+		if (!success) return false;
+	}
+
+		if (myFileSize == csFileUtils::FILESIZE_UNKNOWN) {
+
+			myFile->read(myBigBuffer, csSegyHeader::SIZE_TRCHDR);
+
+			if (myFile->fail()) {
+
+				if (myFile->eof())
+					return false;
+				else {
+					closeFile();
+					throw(csException("csSegyReader::getNextTrace: Unexpected error occurred when reading in data from input file '%s'", myFilename.c_str()));
+				}
+			}
+		}
+		else { // file size is known == random access enabled
+			if (myCurrentTraceInFile == myNumTraces) return false;
+
+			myFile->clear(); // Clear all flags
+			myFile->read(myBigBuffer, csSegyHeader::SIZE_TRCHDR);
+
+			if (myFile->fail()) {
+				closeFile();
+				throw(csException("csSegyReader::getNextTrace: Unexpected error occurred when reading in data from input file '%s'", myFilename.c_str()));
+			}
+			else if (myFile->eof()) {
+				fprintf(stdout, "End of file reached...\n");
+				fflush(stdout);
+			}
+		}
+	
+	csInt64_t bytePosRelative = (csInt64_t)(myTraceByteSize - csSegyHeader::SIZE_TRCHDR);
+	if (!csFileUtils::seekg_relative(bytePosRelative, myFile)) return false;
+	if (myFile->fail()) return false;
+	myCurrentTraceInFile += 1;
+
+	// Extract header values
+	byte_t* trcHdrPtr = reinterpret_cast<byte_t*>(myBigBuffer);
+	myTrcHdr->readHeaderValues(trcHdrPtr, myDoSwapEndianHdr, myIsAutoScaleHeaders);
+
+	return true;
+}
+
 //--------------------------------------------------------------------------------
 bool csSegyReader::getNextTrace( byte_t* sampleBufferOut, int nSamples ) {
   if( nSamples <= 0 || nSamples > myNumSamples ) {
