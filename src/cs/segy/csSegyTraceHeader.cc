@@ -339,3 +339,8 @@ void csSegyTraceHeader::setStringValue( int hdrIndex, std::string const& value )
   throw( csException("setStringValue: Not implemented yet") );
 }
 
+csSegyTraceHeader::csSegyTraceHeader(const csSegyTraceHeader &trcHdr) {
+	myHdrValues = trcHdr.myHdrValues;
+	myHdrMapPtr = trcHdr.myHdrMapPtr;
+}
+

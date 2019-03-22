@@ -23,6 +23,7 @@ class csSegyHdrMap;
 class csSegyTraceHeader {
 
 public:
+  csSegyTraceHeader(const csSegyTraceHeader &trcHdr);
   csSegyTraceHeader( csSegyHdrMap const* hdrMap );
   ~csSegyTraceHeader();
   int numHeaders() const;

@@ -254,3 +254,12 @@ CS_CAPI void cseis_csNativeSegyReader_charBinHeader(void *obj, char *buf) {
 	memcpy(buf, ptr->charHdrBlock(), csSegyHeader::SIZE_CHARHDR * sizeof(char));
 }
 
+CS_CAPI const void*const cseis_csNativeSegyReader_getTraceHeader(void *obj) {
+	csSegyReader* ptr = reinterpret_cast<csSegyReader*>(obj);
+	return reinterpret_cast<const void *const>(ptr->getTraceHeader());
+}
+
+CS_CAPI const char* cseis_csNativeSegyReader_getFileName(void *obj) {
+	csSegyReader* ptr = reinterpret_cast<csSegyReader*>(obj);
+	return reinterpret_cast<const char*>(ptr->filename());
+}

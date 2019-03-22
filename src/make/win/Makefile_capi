@@ -52,7 +52,8 @@ CAPI = $(OBJDIR)/csCAPISegyReader.o \
 	   $(OBJDIR)/csCAPISegyBinHeader.o \
 	   $(OBJDIR)/csCAPISegyTrace.o \
 	   $(OBJDIR)/csCAPISegyHeaderInfo.o \
-	   $(OBJDIR)/csCAPISegyHdrMap.o
+	   $(OBJDIR)/csCAPISegyHdrMap.o \
+	   $(OBJDIR)/csCAPISegyTraceHeader.o
 
 CXXFLAGS_JNI = $(COMMON_FLAGS) -I"src/cs/geolib" -I"$(SRCDIR)/cs/segy" -I"$(SRCDIR)/cs/segd" -I"$(SRCDIR)/cs/io" -I"$(SRCDIR)/cs/system"
 INC_JNI      = -I$(SRCDIR)/cs/jni -I$(SRCDIR)/cs/jni/win32
@@ -87,6 +88,8 @@ $(OBJDIR)/csCAPISegyHeaderInfo.o: ${CAPI_DIR}/csCAPISegyHeaderInfo.cc
 $(OBJDIR)/csCAPISegyHdrMap.o: ${CAPI_DIR}/csCAPISegyHdrMap.cc
 	$(CPP) -c ${CAPI_DIR}/csCAPISegyHdrMap.cc -o $(OBJDIR)/csCAPISegyHdrMap.o $(CXXFLAGS_JNI) $(INC_JNI)
 
+$(OBJDIR)/csCAPISegyTraceHeader.o: ${CAPI_DIR}/csCAPISegyTraceHeader.cc
+	$(CPP) -c ${CAPI_DIR}/csCAPISegyTraceHeader.cc -o $(OBJDIR)/csCAPISegyTraceHeader.o $(CXXFLAGS_JNI) $(INC_JNI)
 
 	
 $(OBJDIR)/fft.o: $(SRCDIR)/cs/geolib/fft.cc        
