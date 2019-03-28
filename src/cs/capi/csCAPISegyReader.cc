@@ -244,9 +244,14 @@ CS_CAPI bool cseis_csSegyReader_getNextTraceHeader
 	}
 }
 
-CS_CAPI const void * const cseis_csSegyReader_getTrcHdrMap(void *obj) {
+CS_CAPI void * const cseis_csSegyReader_getTrcHdrMap(void *obj) {
 	csSegyReader* ths = reinterpret_cast<csSegyReader*>(obj);
-	return static_cast<const void*>(ths->getTrcHdrMap());
+	return static_cast<void*>(new csSegyHdrMap(ths->getTrcHdrMap()));
+}
+
+CS_CAPI void cseis_csSegyReader_setTrcHdrMap(void *obj, void *map) {
+	csSegyReader* ths = reinterpret_cast<csSegyReader*>(obj);
+	ths->resetTrcHdrMap(reinterpret_cast<csSegyHdrMap*>(map));
 }
 
 CS_CAPI void cseis_csNativeSegyReader_charBinHeader(void *obj, char *buf) {

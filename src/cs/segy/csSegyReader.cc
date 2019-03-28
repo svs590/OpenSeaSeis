@@ -919,3 +919,10 @@ cseis_geolib::csFlexNumber const* csSegyReader::getSelectedValue( int traceIndex
 int csSegyReader::getSelectedIndex( int traceIndex ) const {
   return myIOSelection->getSelectedIndex( traceIndex );
 }
+
+void csSegyReader::resetTrcHdrMap(csSegyHdrMap* map) {
+	delete myTrcHdrMap;
+	myTrcHdrMap = new csSegyHdrMap(map);
+	delete myTrcHdr;
+	myTrcHdr = new csSegyTraceHeader(myTrcHdrMap);
+}

@@ -6,6 +6,14 @@
 
 using namespace cseis_geolib;
 
+
+CS_CAPI void* cseis_csNativeSegyHdrMap_createInstance(int map_type) {
+	return static_cast<void*>(new csSegyHdrMap(map_type));
+}
+CS_CAPI void cseis_csNativeSegyHdrMap_deleteInstance(void* obj) {
+	csSegyHdrMap *map = static_cast<csSegyHdrMap*>(obj);
+	delete map;
+}
 CS_CAPI int cseis_csNativeSegyHdrMap_getMapID(void *obj){
 	return static_cast<csSegyHdrMap*>(obj)->mapID();
 }
