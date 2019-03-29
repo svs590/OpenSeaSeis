@@ -15,6 +15,12 @@
 
 using namespace cseis_geolib;
 
+CS_CAPI void *cseis_csNativecsSegyTraceHeader_createInstance(const void *hdrMap) {
+	auto map = reinterpret_cast<const csSegyHdrMap*>(hdrMap);
+	auto newHeader = new csSegyTraceHeader(map);
+	return reinterpret_cast<void*>(newHeader);
+}
+
 CS_CAPI void *cseis_csNativecsSegyTraceHeader_copyInstance(const void *obj) {
 	auto to_copy = reinterpret_cast<const csSegyTraceHeader*>(obj);
 	auto newHeader = new csSegyTraceHeader(*to_copy);
